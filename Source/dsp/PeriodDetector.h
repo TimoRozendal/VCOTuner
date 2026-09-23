@@ -35,9 +35,22 @@ public:
 
     DetectorStatus status() const noexcept { return currentStatus; }
 
+    double midpoint()  const noexcept { return levelMidpoint; }
+    double amplitude() const noexcept { return levelAmplitude; }
+
 private:
+    void finishWarmup();
+
     PeriodDetectorConfig cfg {};
     DetectorStatus currentStatus = DetectorStatus::collecting;
+
+    long long sampleCounter  = 0;
+    int       warmupRemaining = 0;
+    double    runningMin     = 0.0;
+    double    runningMax     = 0.0;
+    double    levelMidpoint  = 0.0;
+    double    levelAmplitude = 0.0;
+    bool      haveLevel      = false;
 };
 
 } // namespace vcotuner
