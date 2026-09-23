@@ -185,3 +185,83 @@ TEST_CASE ("trigger level adapts to very quiet and very hot signals")
     REQUIRE (counts[0] >= 430);
     REQUIRE (counts[0] <= 441);
 }
+
+#include <numeric>
+
+namespace
+{
+    double periodJitter (const PeriodDetector& d)
+    {
+        const int n = d.numPeriods();
+        if (n < 2) return 1e9;
+        const double* p = d.periodData();
+        const double mean = std::accumulate (p, p + n, 0.0) / n;
+        double acc = 0.0;
+        for (int i = 0; i < n; ++i) acc += (p[i] - mean) * (p[i] - mean);
+        return std::sqrt (acc / n);
+    }
+
+    PeriodDetectorConfig countingConfig()
+    {
+        PeriodDetectorConfig cfg;
+        cfg.warmupSamples   = 480;
+        cfg.maxPeriods      = 4000;
+        cfg.requiredPeriods = 100000;
+        return cfg;
+    }
+}
+
+TEST_CASE ("interpolation makes period measurement sub-sample accurate")
+{
+    // Regression guard for the mirrored-fraction bug. The old formula
+    // produced ~0.57 samples of jitter here; no interpolation at all gives
+    // ~0.29. Neither can reach 0.05.
+    for (double freq : { 110.0, 440.0, 1318.51, 4186.01 })
+    {
+        const auto samples = makeSine (freq, 48000.0, 48000, 0.9, 0.0);
+        PeriodDetector detector;
+        detector.reset (countingConfig());
+        detector.processBlock (samples.data(), 48000);
+
+        INFO ("freq=" << freq << " jitter=" << periodJitter (detector));
+        REQUIRE (detector.numPeriods() > 50);
+        REQUIRE (periodJitter (detector) < 0.05);
+    }
+}
+
+TEST_CASE ("recovered frequency is accurate to well under a cent")
+{
+    for (double freq : { 110.0, 440.0, 1318.51, 4186.01 })
+    {
+        const auto samples = makeSine (freq, 48000.0, 48000, 0.9, 0.0);
+        PeriodDetector detector;
+        detector.reset (countingConfig());
+        detector.processBlock (samples.data(), 48000);
+
+        const int n = detector.numPeriods();
+        const double* p = detector.periodData();
+        const double meanPeriod = std::accumulate (p, p + n, 0.0) / n;
+        const double measured   = 48000.0 / meanPeriod;
+        const double cents      = 1200.0 * std::log2 (measured / freq);
+
+        INFO ("freq=" << freq << " cents error=" << cents);
+        REQUIRE (std::abs (cents) < 0.1);
+    }
+}
+
+TEST_CASE ("interpolation is accurate on a saw wave")
+{
+    const double freq = 440.0;
+    std::vector<float> samples (48000);
+    for (int i = 0; i < 48000; ++i)
+    {
+        const double phase = std::fmod (freq * i / 48000.0, 1.0);
+        samples[(size_t) i] = (float) (2.0 * phase - 1.0);
+    }
+
+    PeriodDetector detector;
+    detector.reset (countingConfig());
+    detector.processBlock (samples.data(), 48000);
+
+    REQUIRE (periodJitter (detector) < 0.05);
+}

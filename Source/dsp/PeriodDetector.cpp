@@ -81,7 +81,18 @@ void PeriodDetector::processCrossing (double s)
     else if (haveLastSample && lastSample < levelMidpoint && s >= levelMidpoint)
     {
         armed = false;
-        recordCrossing ((double) sampleCounter);
+
+        // Linear interpolation between the two samples straddling the
+        // midpoint. The previous sample sits at sampleCounter - 1.
+        //   correct:  x0 = (sampleCounter - 1) + f
+        // The old code computed (sampleCounter - 1) + (1 - f), mirroring the
+        // fraction within the interval and roughly doubling the jitter versus
+        // no interpolation at all.
+        const double slope = s - lastSample;               // > 0 by the branch
+        const double f = (slope != 0.0)
+                       ? (levelMidpoint - lastSample) / slope
+                       : 0.0;
+        recordCrossing ((double) (sampleCounter - 1) + f);
     }
 
     lastSample = s;
