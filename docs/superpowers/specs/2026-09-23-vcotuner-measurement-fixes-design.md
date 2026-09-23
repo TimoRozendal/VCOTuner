@@ -140,8 +140,15 @@ sees that audio. The detector therefore runs its own warm-up over the first
 `warmupSamples` samples it receives: it updates min/max but emits no crossings.
 `VCOTuner` sets `warmupSamples` to cover two cycles at the expected frequency,
 which it already computes for the timeout (`Source/VCOTuner.cpp:270`), clamped
-to a sane floor and ceiling. Level tracking continues after warm-up so the
-detector follows slow level changes.
+to a sane floor and ceiling.
+
+**The trigger level is latched at the end of warm-up, not tracked continuously.**
+An earlier draft of this spec said the opposite — that level tracking continues
+so the detector follows slow level changes. That was wrong, and the code is
+right: a threshold that drifts mid-measurement injects timing error into exactly
+the periods being measured, which is the error this design exists to remove.
+`runningMin`/`runningMax` keep updating, but `levelMidpoint`/`levelAmplitude`
+are computed once, at the end of warm-up, and held for the measurement.
 
 **Silence and degenerate levels.** If `amplitude` falls below a small fixed
 floor, the input is treated as silent: the detector reports
