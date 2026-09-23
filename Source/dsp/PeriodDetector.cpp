@@ -26,8 +26,9 @@ void PeriodDetector::processBlock (const float* samples, int numSamples)
     {
         const double s = (double) samples[i];
 
-        // Level tracking runs continuously so the detector follows slow
-        // level changes, not just the warm-up window.
+        // Min/max keep updating, but the trigger level is latched once at the
+        // end of warm-up: a threshold that drifts mid-measurement would inject
+        // timing error into exactly the periods we are trying to measure.
         if (s < runningMin) runningMin = s;
         if (s > runningMax) runningMax = s;
 

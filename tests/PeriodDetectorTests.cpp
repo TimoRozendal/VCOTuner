@@ -12,6 +12,7 @@ TEST_CASE ("a freshly reset detector is collecting")
 }
 
 #include <catch2/catch_approx.hpp>
+#include <algorithm>
 #include <cmath>
 #include <vector>
 
@@ -45,6 +46,33 @@ TEST_CASE ("level tracking finds the midpoint of a DC-offset signal")
 
     REQUIRE (detector.midpoint()  == Approx (0.3).margin (0.01));
     REQUIRE (detector.amplitude() == Approx (0.8).margin (0.01));
+}
+
+TEST_CASE ("level tracking is unaffected by block chunking")
+{
+    // Same DC-offset sine as "level tracking finds the midpoint of a
+    // DC-offset signal", but fed through processBlock in small chunks —
+    // the way the real-time audio callback delivers 256-512 sample
+    // buffers, never one block spanning the whole warm-up window.
+    PeriodDetectorConfig cfg;
+    cfg.warmupSamples = 4800;              // 100 ms at 48 kHz
+    const auto samples = makeSine (220.0, 48000.0, 4800, 0.8, 0.3);
+
+    PeriodDetector singleBlock;
+    singleBlock.reset (cfg);
+    singleBlock.processBlock (samples.data(), (int) samples.size());
+
+    PeriodDetector chunked;
+    chunked.reset (cfg);
+    const int chunkSize = 64;
+    for (int offset = 0; offset < (int) samples.size(); offset += chunkSize)
+    {
+        const int n = std::min (chunkSize, (int) samples.size() - offset);
+        chunked.processBlock (samples.data() + offset, n);
+    }
+
+    REQUIRE (chunked.midpoint()  == singleBlock.midpoint());
+    REQUIRE (chunked.amplitude() == singleBlock.amplitude());
 }
 
 TEST_CASE ("level tracking handles an asymmetric waveform")
