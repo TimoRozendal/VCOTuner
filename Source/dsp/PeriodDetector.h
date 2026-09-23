@@ -41,10 +41,14 @@ public:
     int numPeriods() const noexcept { return (int) periods.size(); }
     const double* periodData() const noexcept { return periods.data(); }
 
+    int numValidPeriods() const noexcept;
+    const double* validPeriods() const noexcept;
+
 private:
     void finishWarmup();
     void processCrossing (double s);
     void recordCrossing (double position);
+    void updateStability();
 
     PeriodDetectorConfig cfg {};
     DetectorStatus currentStatus = DetectorStatus::collecting;
@@ -62,6 +66,7 @@ private:
     double lastSample     =  0.0;
     bool   armed          = false;
     bool   haveLastSample = false;
+    int    firstValidIndex = -1;
 };
 
 } // namespace vcotuner

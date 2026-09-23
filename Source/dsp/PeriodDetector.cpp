@@ -1,5 +1,6 @@
 // Source/dsp/PeriodDetector.cpp
 #include "PeriodDetector.h"
+#include <cmath>
 
 namespace vcotuner
 {
@@ -18,10 +19,11 @@ void PeriodDetector::reset (const PeriodDetectorConfig& config)
 
     periods.clear();
     periods.reserve ((size_t) config.maxPeriods);
-    lastCrossing   = -1.0;
-    lastSample     = 0.0;
-    armed          = false;
-    haveLastSample = false;
+    lastCrossing    = -1.0;
+    lastSample      = 0.0;
+    armed           = false;
+    haveLastSample  = false;
+    firstValidIndex = -1;
 }
 
 void PeriodDetector::processBlock (const float* samples, int numSamples)
@@ -108,6 +110,57 @@ void PeriodDetector::recordCrossing (double position)
         periods.push_back (position - lastCrossing);
 
     lastCrossing = position;
+
+    updateStability();
+}
+
+int PeriodDetector::numValidPeriods() const noexcept
+{
+    if (firstValidIndex < 0) return 0;
+    return (int) periods.size() - firstValidIndex;
+}
+
+const double* PeriodDetector::validPeriods() const noexcept
+{
+    if (firstValidIndex < 0) return periods.data();
+    return periods.data() + firstValidIndex;
+}
+
+void PeriodDetector::updateStability()
+{
+    const int n = (int) periods.size();
+
+    if (firstValidIndex < 0 && n >= cfg.stabilityWindow)
+    {
+        double sum = 0.0;
+        for (int i = n - cfg.stabilityWindow; i < n; ++i)
+            sum += periods[(size_t) i];
+        const double average  = sum / cfg.stabilityWindow;
+        const double boundary = average * cfg.stabilityTolerance;
+
+        bool steady = true;
+        for (int i = n - cfg.stabilityWindow; i < n; ++i)
+            if (std::abs (periods[(size_t) i] - average) >= boundary)
+                steady = false;
+
+        if (steady)
+            firstValidIndex = n;
+    }
+
+    if (firstValidIndex >= 0 && numValidPeriods() >= cfg.requiredPeriods)
+    {
+        currentStatus = DetectorStatus::stable;
+        return;
+    }
+
+    // Storage exhausted before collecting what we need. This must be a
+    // terminal state: the old code left the measurement running here, so it
+    // stalled until the top level timed out and then blamed the wrong thing.
+    // Distinguish the two causes - never steady at all, versus steady but not
+    // for long enough - because they need different advice to the user.
+    if (n >= cfg.maxPeriods)
+        currentStatus = (firstValidIndex < 0) ? DetectorStatus::failedUnstable
+                                              : DetectorStatus::failedBufferFull;
 }
 
 } // namespace vcotuner

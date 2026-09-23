@@ -265,3 +265,77 @@ TEST_CASE ("interpolation is accurate on a saw wave")
 
     REQUIRE (periodJitter (detector) < 0.05);
 }
+
+TEST_CASE ("a steady signal reaches the stable status")
+{
+    PeriodDetectorConfig cfg;
+    cfg.warmupSamples   = 480;
+    cfg.requiredPeriods = 20;
+    const auto samples = makeSine (440.0, 48000.0, 48000, 0.9, 0.0);
+
+    PeriodDetector detector;
+    detector.reset (cfg);
+    detector.processBlock (samples.data(), 48000);
+
+    REQUIRE (detector.status() == DetectorStatus::stable);
+    REQUIRE (detector.numValidPeriods() >= 20);
+}
+
+TEST_CASE ("a constantly changing rate never stabilises and terminates")
+{
+    // A sweep from 200 Hz to 2 kHz never holds a steady period. The detector
+    // must reach a terminal state rather than hanging - the old code left the
+    // measurement running here and stalled until the top-level timeout.
+    PeriodDetectorConfig cfg;
+    cfg.warmupSamples   = 480;
+    cfg.maxPeriods      = 200;
+    cfg.requiredPeriods = 20;
+
+    std::vector<float> samples (48000);
+    double phase = 0.0;
+    for (int i = 0; i < 48000; ++i)
+    {
+        const double f = 200.0 + 1800.0 * (i / 48000.0);
+        phase += 2.0 * kPi * f / 48000.0;
+        samples[(size_t) i] = (float) std::sin (phase);
+    }
+
+    PeriodDetector detector;
+    detector.reset (cfg);
+    detector.processBlock (samples.data(), 48000);
+
+    REQUIRE (detector.status() == DetectorStatus::failedUnstable);
+}
+
+TEST_CASE ("a steady signal that outruns the buffer reports failedBufferFull")
+{
+    // Stabilises immediately, but the buffer cannot hold enough periods to
+    // satisfy requiredPeriods. Distinct from failedUnstable: the signal is
+    // fine, the resolution setting is simply too high for the storage.
+    PeriodDetectorConfig cfg;
+    cfg.warmupSamples   = 480;
+    cfg.maxPeriods      = 20;
+    cfg.requiredPeriods = 500;
+    const auto samples = makeSine (440.0, 48000.0, 48000, 0.9, 0.0);
+
+    PeriodDetector detector;
+    detector.reset (cfg);
+    detector.processBlock (samples.data(), 48000);
+
+    REQUIRE (detector.status() == DetectorStatus::failedBufferFull);
+}
+
+TEST_CASE ("valid periods exclude the unstable run-in")
+{
+    PeriodDetectorConfig cfg;
+    cfg.warmupSamples   = 480;
+    cfg.requiredPeriods = 10;
+    const auto samples = makeSine (440.0, 48000.0, 48000, 0.9, 0.0);
+
+    PeriodDetector detector;
+    detector.reset (cfg);
+    detector.processBlock (samples.data(), 48000);
+
+    REQUIRE (detector.numValidPeriods() <= detector.numPeriods());
+    REQUIRE (detector.validPeriods() != nullptr);
+}
