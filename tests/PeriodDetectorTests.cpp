@@ -106,3 +106,70 @@ TEST_CASE ("silence is reported as failedNoCrossings, not a divide by zero")
     REQUIRE (std::isfinite (detector.midpoint()));
     REQUIRE (std::isfinite (detector.amplitude()));
 }
+
+#include <random>
+
+namespace
+{
+    // M_PI is not standard C++ (needs _USE_MATH_DEFINES on MSVC); reuse the
+    // kPi constant declared above instead.
+    std::vector<float> makeNoisySine (double freq, double sampleRate, int numSamples,
+                                      double noise, double dc, unsigned seed = 7)
+    {
+        std::mt19937 rng (seed);
+        std::uniform_real_distribution<double> dist (-noise, noise);
+        std::vector<float> out ((size_t) numSamples);
+        for (int i = 0; i < numSamples; ++i)
+            out[(size_t) i] = (float) (dc + std::sin (2.0 * kPi * freq * i / sampleRate)
+                                          + dist (rng));
+        return out;
+    }
+}
+
+TEST_CASE ("hysteresis rejects noise-induced false crossings")
+{
+    // 1 second of 220 Hz => 220 periods. Warm-up consumes roughly the first
+    // 2 cycles, so allow a small shortfall rather than demanding exactly 219.
+    const int numSamples = 48000;
+
+    struct Case { double noise; double dc; };
+    const Case cases[] = { {0.02, 0.0}, {0.05, 0.0}, {0.02, 0.9}, {0.05, 0.9} };
+
+    for (const auto& c : cases)
+    {
+        PeriodDetectorConfig cfg;
+        cfg.warmupSamples  = 480;
+        cfg.maxPeriods     = 2000;
+        cfg.requiredPeriods = 100000;   // never declare 'stable'; just count
+        const auto samples = makeNoisySine (220.0, 48000.0, numSamples, c.noise, c.dc);
+
+        PeriodDetector detector;
+        detector.reset (cfg);
+        detector.processBlock (samples.data(), numSamples);
+
+        INFO ("noise=" << c.noise << " dc=" << c.dc);
+        // The old hard-threshold detector produced up to 609 here.
+        REQUIRE (detector.numPeriods() >= 215);
+        REQUIRE (detector.numPeriods() <= 221);
+    }
+}
+
+TEST_CASE ("trigger level adapts to very quiet and very hot signals")
+{
+    for (double amp : { 0.01, 0.5, 4.0 })
+    {
+        PeriodDetectorConfig cfg;
+        cfg.warmupSamples   = 480;
+        cfg.maxPeriods      = 2000;
+        cfg.requiredPeriods = 100000;
+        const auto samples = makeSine (440.0, 48000.0, 48000, amp, 0.0);
+
+        PeriodDetector detector;
+        detector.reset (cfg);
+        detector.processBlock (samples.data(), 48000);
+
+        INFO ("amplitude=" << amp);
+        REQUIRE (detector.numPeriods() >= 435);
+        REQUIRE (detector.numPeriods() <= 441);
+    }
+}

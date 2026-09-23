@@ -15,6 +15,13 @@ void PeriodDetector::reset (const PeriodDetectorConfig& config)
     levelMidpoint   = 0.0;
     levelAmplitude  = 0.0;
     haveLevel       = false;
+
+    periods.clear();
+    periods.reserve ((size_t) config.maxPeriods);
+    lastCrossing   = -1.0;
+    lastSample     = 0.0;
+    armed          = false;
+    haveLastSample = false;
 }
 
 void PeriodDetector::processBlock (const float* samples, int numSamples)
@@ -38,6 +45,9 @@ void PeriodDetector::processBlock (const float* samples, int numSamples)
                 finishWarmup();
         }
 
+        if (haveLevel && currentStatus == DetectorStatus::collecting)
+            processCrossing (s);
+
         ++sampleCounter;
     }
 }
@@ -55,6 +65,38 @@ void PeriodDetector::finishWarmup()
     }
 
     haveLevel = true;
+}
+
+void PeriodDetector::processCrossing (double s)
+{
+    const double hysteresis = cfg.hysteresisFraction * levelAmplitude;
+
+    // Re-arm only after the signal has dropped clearly below the midpoint.
+    // Noise between the rails cannot retrigger.
+    if (! armed)
+    {
+        if (s < levelMidpoint - hysteresis)
+            armed = true;
+    }
+    else if (haveLastSample && lastSample < levelMidpoint && s >= levelMidpoint)
+    {
+        armed = false;
+        recordCrossing ((double) sampleCounter);
+    }
+
+    lastSample = s;
+    haveLastSample = true;
+}
+
+void PeriodDetector::recordCrossing (double position)
+{
+    if ((int) periods.size() >= cfg.maxPeriods)
+        return;
+
+    if (lastCrossing >= 0.0)
+        periods.push_back (position - lastCrossing);
+
+    lastCrossing = position;
 }
 
 } // namespace vcotuner

@@ -38,8 +38,13 @@ public:
     double midpoint()  const noexcept { return levelMidpoint; }
     double amplitude() const noexcept { return levelAmplitude; }
 
+    int numPeriods() const noexcept { return (int) periods.size(); }
+    const double* periodData() const noexcept { return periods.data(); }
+
 private:
     void finishWarmup();
+    void processCrossing (double s);
+    void recordCrossing (double position);
 
     PeriodDetectorConfig cfg {};
     DetectorStatus currentStatus = DetectorStatus::collecting;
@@ -51,6 +56,12 @@ private:
     double    levelMidpoint  = 0.0;
     double    levelAmplitude = 0.0;
     bool      haveLevel      = false;
+
+    std::vector<double> periods;
+    double lastCrossing   = -1.0;
+    double lastSample     =  0.0;
+    bool   armed          = false;
+    bool   haveLastSample = false;
 };
 
 } // namespace vcotuner
