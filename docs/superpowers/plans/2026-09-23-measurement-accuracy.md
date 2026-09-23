@@ -879,6 +879,31 @@ void PeriodDetector::updateStability()
 
     if (firstValidIndex >= 0 && numValidPeriods() >= cfg.requiredPeriods)
     {
+        // The latch above only proves the rate held steady across one window.
+        // Re-check the whole collected set before declaring success: a drifting
+        // oscillator can satisfy a single window and then wander far outside
+        // tolerance, which is exactly what failedUnstable is for. The shipping
+        // app has this hole - it sets indexOfFirstValidPeriodLength once and
+        // never rechecks - so a thermally drifting VCO reads as a confident
+        // measurement.
+        const double* p = validPeriods();
+        const int valid = numValidPeriods();
+
+        double sum = 0.0;
+        for (int i = 0; i < valid; ++i)
+            sum += p[i];
+        const double average  = sum / valid;
+        const double boundary = average * cfg.stabilityTolerance;
+
+        for (int i = 0; i < valid; ++i)
+        {
+            if (std::abs (p[i] - average) >= boundary)
+            {
+                currentStatus = DetectorStatus::failedUnstable;
+                return;
+            }
+        }
+
         currentStatus = DetectorStatus::stable;
         return;
     }
