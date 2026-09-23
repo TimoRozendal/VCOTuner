@@ -56,6 +56,18 @@ juce_generate_juce_header(VCOTuner)
 
 include_directories(Source)
 
+# Pure DSP logic, no JUCE dependency. Linked by both the app and the tests.
+add_library(vcotuner_dsp STATIC
+    Source/dsp/PeriodDetector.cpp)
+target_include_directories(vcotuner_dsp PUBLIC Source)
+target_compile_features(vcotuner_dsp PUBLIC cxx_std_17)
+
+option(VCOTUNER_BUILD_TESTS "Build the unit tests" ON)
+if(VCOTUNER_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
+
 target_sources(VCOTuner
     PRIVATE
         Source/MainComponent.cpp
@@ -120,6 +132,7 @@ target_compile_definitions(VCOTuner
 target_link_libraries(VCOTuner
     PRIVATE
         # GuiAppData            # If we'd created a binary data target, we'd link to it here
+        vcotuner_dsp
         juce::juce_gui_basics
         juce::juce_gui_extra
         juce::juce_audio_devices

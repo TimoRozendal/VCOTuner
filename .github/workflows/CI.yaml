@@ -103,4 +103,30 @@ jobs:
         name: VCOTuner_Linux
         path: build/VCOTuner_artefacts/VCOTuner
 
+  ###############################################################################
+  # builds and runs the unit tests
+  unitTests:
+    runs-on: ubuntu-latest
 
+    steps:
+    - name: Setup cmake
+      uses: jwlawson/actions-setup-cmake@v1.8
+      with:
+        cmake-version: '3.19.x'
+
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        submodules: recursive
+
+    - name: Configure
+      run: |
+        cmake -G "Unix Makefiles" -B build -DVCOTUNER_BUILD_TESTS=ON
+
+    - name: Build tests
+      run: |
+        cmake --build build --target VCOTunerTests
+
+    - name: Run tests
+      run: |
+        ctest --test-dir build --output-on-failure
