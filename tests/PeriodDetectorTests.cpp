@@ -156,6 +156,13 @@ TEST_CASE ("hysteresis rejects noise-induced false crossings")
 
 TEST_CASE ("trigger level adapts to very quiet and very hot signals")
 {
+    // The absolute count follows from the fixture: 48000 samples at 440 Hz
+    // is 440 cycles, warm-up consumes 480 samples (4.4 cycles), the trigger
+    // needs up to another half cycle to arm, and the first crossing is
+    // discarded for having no predecessor. That lands on 434. What matters
+    // is that the count does not move with amplitude.
+    std::vector<int> counts;
+
     for (double amp : { 0.01, 0.5, 4.0 })
     {
         PeriodDetectorConfig cfg;
@@ -167,9 +174,14 @@ TEST_CASE ("trigger level adapts to very quiet and very hot signals")
         PeriodDetector detector;
         detector.reset (cfg);
         detector.processBlock (samples.data(), 48000);
-
-        INFO ("amplitude=" << amp);
-        REQUIRE (detector.numPeriods() >= 435);
-        REQUIRE (detector.numPeriods() <= 441);
+        counts.push_back (detector.numPeriods());
     }
+
+    INFO ("counts: " << counts[0] << ", " << counts[1] << ", " << counts[2]);
+    // A threshold fixed in absolute terms rather than scaled to the measured
+    // amplitude would miss every crossing at 0.01 and still fire at 4.0.
+    REQUIRE (counts[0] == counts[1]);
+    REQUIRE (counts[1] == counts[2]);
+    REQUIRE (counts[0] >= 430);
+    REQUIRE (counts[0] <= 441);
 }
