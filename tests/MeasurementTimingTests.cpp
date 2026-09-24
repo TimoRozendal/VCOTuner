@@ -18,6 +18,10 @@ TEST_CASE ("the timeout is never zero anywhere in the supported range")
             const int cycles = computeTimeoutCycles (freq, periods, 0.01, 0.3);
             INFO ("midi=" << midi << " periods=" << periods);
             REQUIRE (cycles >= 50);
+            // Non-zero is not enough: the timeout has to actually cover the
+            // time the measurement needs, or a re-derivation could be short
+            // yet still clear the floor - the original bug's failure mode.
+            REQUIRE (cycles * 0.01 >= (double) periods / freq);
         }
     }
 }
