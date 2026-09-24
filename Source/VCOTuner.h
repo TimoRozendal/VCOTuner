@@ -139,12 +139,33 @@ private:
     void startDetectorRun(int pitch);
     /** records the failure, tells the listeners and moves on to the next note */
     void failCurrentNote(vcotuner::MeasurementError reason);
+    /** Bounded wait for the audio thread to consume a pending stop request.
+
+        Every prep state must let a pending stop request drain before starting
+        a new run, otherwise the low level state machine consumes the stale
+        request and kills the run it was meant to start. Only the audio
+        callback clears that flag, so with no device running nothing ever
+        would: after one second this reports the failure and stops the tuner
+        instead of waiting forever.
+
+        @returns true while the caller must not proceed (either still waiting,
+                 or the tuner has just been stopped); false when the flag is
+                 clear and the state may carry on.
+    */
+    bool awaitingStopRequest();
     /** the user facing message for a detector status that is not 'stable' */
     const String& errorMessageForStatus(vcotuner::DetectorStatus status) const;
     int currentlyPlayingMidiNote;
     
     // counts cycles since the last state transition
     int cycleCounter;
+
+    /** counts consecutive cycles a prep state has spent waiting for a pending
+        stop request to be consumed. Kept separate from cycleCounter, which
+        gates the MIDI note-on (cycleCounter == 0) and the 100 ms oscillator
+        settling window: advancing that one while waiting would skip the
+        note-on entirely and shorten the settling time. */
+    int stopWaitCounter = 0;
 
     
     /** lowest pitch to be measured */

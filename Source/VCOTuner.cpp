@@ -17,6 +17,15 @@
 
 namespace
 {
+    /** How long a prep state waits for a pending stop request to be consumed.
+
+        Only the audio callback clears stopMeasurement, so the wait is bounded:
+        100 cycles of the 10 ms timer is one second, which is several times the
+        longest realistic buffer period (8192 frames at 44.1 kHz is 186 ms),
+        yet finite when no device is running at all.
+    */
+    constexpr int maxStopWaitCycles = 100;
+
     /** Translates what the detector reported into the error the sweep records. */
     vcotuner::MeasurementError errorForStatus (vcotuner::DetectorStatus status)
     {
@@ -154,6 +163,14 @@ void VCOTuner::timerCallback()
         case stopped:
             break;
         case prepRefMeasurement:
+            // wait for the low level state machine to stop measuring (bounded;
+            // see awaitingStopRequest). Changing the pitch-range or resolution
+            // combo while running stops and restarts the tuner within a single
+            // message-thread call stack, so a stop request can still be pending
+            // here when the restart arrives.
+            if (awaitingStopRequest())
+                break;
+            
             if (cycleCounter == 0)
             {
                 // send reference midi note
@@ -225,8 +242,9 @@ void VCOTuner::timerCallback()
         case prepMeasurement:
             // wait for low level state machine to stop measuring: handing it a
             // new run while a stop request is pending would have it consume the
-            // stale request and kill the run it was meant to start.
-            if (stopMeasurement)
+            // stale request and kill the run it was meant to start. Bounded;
+            // see awaitingStopRequest.
+            if (awaitingStopRequest())
                 break;
             
             if (cycleCounter == 0)
@@ -327,8 +345,9 @@ void VCOTuner::timerCallback()
             break;
         case prepareContinuousFrequencyMeasurement:
         {
-            // wait for low level state machine to stop measuring
-            if (stopMeasurement)
+            // wait for low level state machine to stop measuring (bounded;
+            // see awaitingStopRequest)
+            if (awaitingStopRequest())
                 break;
                 
             // send midi note and start measuring
@@ -359,8 +378,9 @@ void VCOTuner::timerCallback()
         } break;
         case prepareSingleMeasurement:
         {
-            // wait for low level state machine to stop measuring
-            if (stopMeasurement)
+            // wait for low level state machine to stop measuring (bounded;
+            // see awaitingStopRequest)
+            if (awaitingStopRequest())
                 break;
             
             if (cycleCounter == 0)
@@ -487,6 +507,26 @@ void VCOTuner::startDetectorRun(int pitch)
     // while it is waiting for this one.
     detectorStatusFlag = (int) vcotuner::DetectorStatus::collecting;
     startMeasurement = true;
+}
+
+bool VCOTuner::awaitingStopRequest()
+{
+    if (!stopMeasurement)
+    {
+        stopWaitCounter = 0;
+        return false;
+    }
+
+    if (++stopWaitCounter <= maxStopWaitCycles)
+        return true;
+
+    // Nothing has consumed the stop request for a full second, so no audio
+    // callback is running. Every prep state used to wait here forever, which
+    // looked to the user exactly like the tuner having frozen. Report it with
+    // the message that already describes this situation and stop.
+    errors.add(Errors::audioDeviceStoppedDuringMeasurement);
+    switchState(stopped);   // resets stopWaitCounter along with cycleCounter
+    return true;
 }
 
 void VCOTuner::failCurrentNote(vcotuner::MeasurementError reason)
@@ -650,6 +690,7 @@ void VCOTuner::audioDeviceIOCallback (const float** inputChannelData,
 void VCOTuner::switchState(VCOTuner::State newState)
 {
     cycleCounter = 0;
+    stopWaitCounter = 0;
     state = newState;
     if (state == stopped)
     {
