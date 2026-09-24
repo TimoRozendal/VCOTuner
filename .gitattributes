@@ -1,0 +1,94 @@
+# Line-ending policy for this repository.
+#
+# History here is a mix of CRLF and LF, core.autocrlf has never been set,
+# and that combination has already caused one accidental CRLF->LF
+# renormalization of two files that had to be caught and reverted by hand.
+# This file does NOT change any existing file's line endings. It only
+# pins down, per path, what is already committed, so a local autocrlf
+# setting or a future overly-broad gitattributes pattern can never touch
+# these bytes again.
+#
+# Important: the 18 CRLF files below are stored as raw, unnormalized CRLF
+# blobs (they were committed before any EOL handling existed, so Git never
+# ran its LF-canonicalizing clean filter on them). Git's `text`/`eol`
+# attributes ALWAYS canonicalize a text path's *stored* blob to LF and
+# reinject the requested ending only on checkout; turning them on for an
+# already-raw-CRLF blob therefore rewrites the stored object (a full-file
+# diff, caught by `git add --renormalize .` even though the checked-out
+# bytes end up looking the same). To leave these blobs byte-for-byte
+# untouched, they are marked `-text`: Git will never apply EOL conversion
+# to them, in either direction, regardless of core.autocrlf or any other
+# pattern in this file. This still stops the class of bug that caused the
+# original incident (a global or broad automatic conversion silently
+# rewriting them); it does not auto-fix a file an editor has already
+# flipped to LF, which would need a human to convert it back and commit
+# that as a normal, visible change.
+#
+# Do not add new wildcard patterns (e.g. `Source/*.cpp`) without checking
+# every file they would match: Source/ReportProperties.cpp is LF while its
+# sibling Source/ReportProperties.h is CRLF, so a naive `Source/*.cpp -text`
+# (or a broader LF rule placed after the CRLF list below) would silently
+# include or exclude the wrong file. Git resolves conflicting attribute
+# lines by taking the LAST matching line in this file, not the most
+# specific one, so ordering matters as much as the patterns themselves.
+
+# Default for everything not listed below, and for any new file: treat as
+# text when Git's own heuristic agrees, and always store/checkout as LF.
+* text=auto eol=lf
+
+# These 18 files (all direct children of Source/) are raw CRLF in history
+# and must stay byte-for-byte as committed; see the note above for why
+# that means `-text` rather than `text eol=crlf`. Every other file,
+# including Source/ReportProperties.cpp, falls through to the `* eol=lf`
+# default above and is intentionally left out of this list.
+Source/MainComponent.cpp -text
+Source/MainComponent.h -text
+Source/MainWindow.cpp -text
+Source/MainWindow.h -text
+Source/ReportCreatorWindow.cpp -text
+Source/ReportCreatorWindow.h -text
+Source/ReportDetailsEditorScreen.cpp -text
+Source/ReportDetailsEditorScreen.h -text
+Source/ReportDisplayScreen.cpp -text
+Source/ReportDisplayScreen.h -text
+Source/ReportPrepScreen.cpp -text
+Source/ReportPrepScreen.h -text
+Source/ReportProperties.h -text
+Source/Startup.cpp -text
+Source/VCOTuner.cpp -text
+Source/VCOTuner.h -text
+Source/Visualizer.cpp -text
+Source/Visualizer.h -text
+
+# Explicitly documented (not just left to the default above) because it is
+# the one file that would be swept up by the CRLF list's most obvious
+# glob-based shorthand: Source/ReportProperties.cpp is LF, unlike every
+# other direct child of Source/. Stated here as an exact path, not a
+# wildcard, so it can never be shadowed by a broader pattern added later.
+Source/ReportProperties.cpp text eol=lf
+
+# Everything under Source/dsp/ is LF and already covered by the default
+# above; spelled out here so the split reads as deliberate rather than
+# coincidental.
+Source/dsp/*.cpp text eol=lf
+Source/dsp/*.h text eol=lf
+
+# No binary files are tracked outside the deps/ submodule today, but if
+# any are added later (icons, images, audio fixtures, fonts, archives),
+# they must never go through text/EOL conversion or textual diffing.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.icns binary
+*.bmp binary
+*.pdf binary
+*.wav binary
+*.mp3 binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.zip binary
+*.jar binary
