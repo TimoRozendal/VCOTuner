@@ -151,6 +151,39 @@ void Visualizer::paintWithFixedScaling(Graphics& g, int width, int height, doubl
             continue;
         }
 
+        // A reading whose centre falls outside the plotted range would draw
+        // nothing at all, and a blank column reads as "this note was never
+        // measured" rather than "this note is worse than the range shows".
+        // That matters most in the report, which plots a fixed +/-15 cents
+        // (see ReportDisplayScreen), so a badly tracking oscillator goes
+        // blank at exactly the notes worth looking at. Mark the edge it ran
+        // off instead. The direction carries the meaning, so it still reads
+        // without relying on colour.
+        const double offset = measurements[i].pitchOffset;
+
+        if (offset > max || offset < min)
+        {
+            const float margin = (float) columnWidth * 0.25f;
+            const float span   = (float) columnWidth - 2.0f * margin;
+            const float depth  = jmin (span, (float) imageHeight * 0.12f);
+            const float centre = left + margin + span / 2.0f;
+
+            Path arrow;
+
+            if (offset > max)
+                arrow.addTriangle (left + margin, depth,
+                                   left + margin + span, depth,
+                                   centre, 0.0f);
+            else
+                arrow.addTriangle (left + margin, (float) imageHeight - depth,
+                                   left + margin + span, (float) imageHeight - depth,
+                                   centre, (float) imageHeight);
+
+            g.setColour (Colours::green);
+            g.fillPath (arrow);
+            continue;
+        }
+
         // draw deviation
         float maxPosition = (float) ((measurements[i].pitchOffset + measurements[i].pitchDeviation - min) * vertScaling);
         float minPosition = (float) ((measurements[i].pitchOffset - measurements[i].pitchDeviation - min) * vertScaling);
