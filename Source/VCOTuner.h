@@ -210,13 +210,18 @@ private:
     {
         static const String highJitter;
         static const String noZeroCrossings;
-        static const String highJitterTimeOut;
+        static const String bufferFull;
         static const String stableTimeout;
         static const String noFrequencyChangeBetweenMeasurements;
         static const String noMidiDeviceAvailable;
         static const String audioDeviceStoppedDuringMeasurement;
     };
 };
+
+/** Short, user-facing description of a per-note measurement failure, for the
+    end-of-report summary dialog in MainComponent. Lives here rather than in
+    Source/dsp/ because it returns a JUCE String. */
+String describeError (vcotuner::MeasurementError error);
 
 
 #endif  // VCOTUNER_H_INCLUDED

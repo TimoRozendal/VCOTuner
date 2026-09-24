@@ -11,6 +11,11 @@ enum class MeasurementError
     // Per-note: mark the note and carry on with the sweep.
     highJitter,
     noZeroCrossings,
+    // Currently unreachable: the detector always reaches a terminal status by
+    // itself (see DetectorStatus), so a top-level timeout only ever observes
+    // 'collecting', which maps to stableTimeout instead. Kept rather than
+    // removed because MeasurementErrorTests.cpp asserts isFatal() on it;
+    // delete both together if this enumerator is ever pruned.
     highJitterTimeOut,
     stableTimeout,
     bufferFull,

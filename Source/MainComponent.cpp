@@ -41,7 +41,11 @@ MainComponent::MainComponent() : tuner(&deviceManager), display(&tuner)
     statusLabel.setName("Status Label");
     statusLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(&statusLabel);
-    
+
+    failureLabel.setName("Failure Label");
+    failureLabel.setJustificationType(juce::Justification::centredLeft);
+    addAndMakeVisible(&failureLabel);
+
     regimeLabel.setName("Regime Label");
     regimeLabel.setText("Pitch range: ", dontSendNotification);
     regimeLabel.setJustificationType(juce::Justification::centredRight);
@@ -120,10 +124,19 @@ void MainComponent::resized()
     resolution.setBounds(regimeLabel.getX() - 120 - borderWidth, audioSettings.getBottom() + borderWidth, 120, buttonHeight);
     resolutionLabel.setBounds(resolution.getX() - 80 - borderWidth, audioSettings.getBottom() + borderWidth, 80, buttonHeight);
     
+    // failureLabel gets a fixed-height row at the very bottom, beneath the
+    // graph. jmax guards a window shrunk past MainWindow's resize limits (or
+    // that limit changing later) from handing the graph a negative height.
+    failureLabel.setBounds(borderWidth,
+                           getHeight() - borderWidth - buttonHeight,
+                           getWidth() - 2 * borderWidth,
+                           buttonHeight);
+
+    const int displayTop = regimeLabel.getBottom() + borderWidth;
     display.setBounds(borderWidth,
-                      regimeLabel.getBottom() + borderWidth,
+                      displayTop,
                       getWidth() - 2 * borderWidth,
-                      getHeight() - 2* borderWidth - regimeLabel.getBottom());
+                      jmax(0, failureLabel.getY() - borderWidth - displayTop));
 
 }
 
@@ -320,6 +333,14 @@ void MainComponent::showAudioSettings()
 void MainComponent::tunerStarted()
 {
     startStop.setButtonText("Stop");
+
+    // A new run: clear any failures left over from the previous one, so a
+    // stale "Not reading: MIDI 84" doesn't linger once that note is being
+    // re-measured (or the range/settings have changed). Fires on every path
+    // that begins a run - the initial Start press and, in live tuning, every
+    // automatic re-cycle from tunerFinished() - since all of them go through
+    // VCOTuner::switchState(prepRefMeasurement).
+    failureLabel.setText({}, dontSendNotification);
 }
 
 void MainComponent::tunerStatusChanged(String statusString)
@@ -332,10 +353,13 @@ void MainComponent::tunerStatusChanged(String statusString)
 
 void MainComponent::tunerStopped()
 {
+    // Fatal errors only (no MIDI device, audio device stopped, MIDI-to-CV not
+    // responding, ...). Per-note failures never reach here - they go to the
+    // status line via measurementFailed(), in both live and report mode.
     StringArray errors = tuner.getLastErrors();
     for (int i = 0; i < errors.size(); i++)
         NativeMessageBox::showMessageBox(AlertWindow::WarningIcon, "Error!", errors[i]);
-    
+
     startStop.setButtonText("Start");
     cycle = false;
     creatingReport = false;
@@ -344,14 +368,63 @@ void MainComponent::tunerStopped()
 void MainComponent::tunerFinished()
 {
     startStop.setButtonText("Start");
-    
+
+    // A report is a single sweep with a real end, so summarise the failures
+    // there in one dialog. Live tuning (cycle == true) restarts the sweep
+    // below and runs until Stop is pressed - there is no "end" to summarise,
+    // and a dialog that fired every cycle would just be noise, so it must
+    // never raise one. The failure label under the graph is what live tuning
+    // shows instead, and it already reflects the sweep that just finished.
     if (creatingReport)
     {
         creatingReport = false;
+
+        const auto& failures = tuner.getFailures();
+        if (! failures.empty())
+        {
+            StringArray lines;
+            for (const auto& f : failures)
+                lines.add ("  - MIDI " + String (f.midiPitch)
+                           + " - " + describeError (f.reason));
+
+            NativeMessageBox::showMessageBox (AlertWindow::InfoIcon,
+                "Measurement finished",
+                String (failures.size()) + " of the measured notes could not be read:\n\n"
+                    + lines.joinIntoString ("\n"));
+        }
     }
-    
+
     if (cycle)
         tuner.toggleState();
+}
+
+void MainComponent::measurementFailed (int /*midiPitch*/, vcotuner::MeasurementError reason)
+{
+    // Per-note failures are never fatal - only the reasons that abort the
+    // whole sweep (routed through tunerStopped instead) are.
+    jassert (! vcotuner::isFatal (reason));
+
+    const auto& failures = tuner.getFailures();
+
+    if (failures.empty())
+    {
+        failureLabel.setText ({}, dontSendNotification);
+        return;
+    }
+
+    // A long sweep with a bad connection can fail most of its notes; listing
+    // all of them would overflow the label. Cap the list and note the rest.
+    constexpr int maxNotesShown = 10;
+
+    StringArray pitches;
+    for (size_t i = 0; i < failures.size() && (int) i < maxNotesShown; ++i)
+        pitches.add (String (failures[i].midiPitch));
+
+    String text = "Not reading: MIDI " + pitches.joinIntoString (", ");
+    if ((int) failures.size() > maxNotesShown)
+        text << " (+" << (int) failures.size() - maxNotesShown << " more)";
+
+    failureLabel.setText (text, dontSendNotification);
 }
 
 const MainComponent::regime_t MainComponent::regimes[numRegimes] = {

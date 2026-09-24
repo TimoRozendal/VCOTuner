@@ -39,7 +39,8 @@ public:
     virtual void tunerStopped() override;
     virtual void tunerFinished() override;
     virtual void tunerStatusChanged(String statusString) override;
-    
+    virtual void measurementFailed (int midiPitch, vcotuner::MeasurementError reason) override;
+
     void startCreatingReport();
     
 private:
@@ -54,6 +55,10 @@ private:
     TextButton report;
     Visualizer display;
     Label statusLabel;
+    /** names the notes that are currently failing to measure. Cleared at the
+        start of every run (tunerStarted) and rebuilt from tuner.getFailures()
+        as failures come in, so it always reflects the current sweep only. */
+    Label failureLabel;
     Label regimeLabel;
     ComboBox regime;
     Label resolutionLabel;

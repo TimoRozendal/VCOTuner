@@ -524,18 +524,52 @@ const String& VCOTuner::errorMessageForStatus(vcotuner::DetectorStatus status) c
         case vcotuner::DetectorStatus::failedNoCrossings:
             return Errors::noZeroCrossings;
         case vcotuner::DetectorStatus::failedUnstable:
-        case vcotuner::DetectorStatus::failedBufferFull:
-            // Both mean the same thing to the user: the crossings never settled
-            // into a constant rate, either within tolerance or within storage.
             return Errors::highJitter;
+        case vcotuner::DetectorStatus::failedBufferFull:
+            // Distinct from highJitter: the signal may have been perfectly
+            // steady, it just needed more storage than this resolution setting
+            // allows before it could be confirmed stable.
+            return Errors::bufferFull;
         case vcotuner::DetectorStatus::collecting:
         case vcotuner::DetectorStatus::stable:
             break;
     }
-    
-    // Still collecting when the caller gave up: crossings are coming in, just
-    // far slower than this pitch should produce.
+
+    // Still collecting when the caller gave up. This covers two different
+    // situations that look the same from here: the crossings never settled
+    // into a steady rate, or the signal was too weak/intermittent for enough
+    // of them to arrive in the first place (warm-up never finished). Say
+    // neither is confirmed rather than asserting the first.
     return Errors::stableTimeout;
+}
+
+/** Short, user-facing description of a per-note measurement failure. Declared
+    in VCOTuner.h (outside the class) rather than in Source/dsp/, since it
+    returns a JUCE String and Source/dsp/ must stay JUCE-free. */
+String describeError (vcotuner::MeasurementError error)
+{
+    using vcotuner::MeasurementError;
+    switch (error)
+    {
+        case MeasurementError::highJitter:
+        case MeasurementError::highJitterTimeOut: // unreachable; see MeasurementError.h
+            return "unsteady rate";
+        case MeasurementError::noZeroCrossings:
+            return "no signal detected";
+        case MeasurementError::stableTimeout:
+            return "timed out";
+        case MeasurementError::bufferFull:
+            return "never settled within the measurement buffer; try a lower resolution";
+        case MeasurementError::none:
+        case MeasurementError::noFrequencyChange:
+        case MeasurementError::noMidiDevice:
+        case MeasurementError::audioDeviceStopped:
+        default:
+            // The fatal reasons never reach here - they abort the sweep and
+            // are reported through tunerStopped() instead of the per-note
+            // failure list this describes.
+            return "failed";
+    }
 }
 
 /** inherited from AudioIODeviceCallback */
@@ -676,9 +710,9 @@ const String VCOTuner::Errors::highJitter = "There are zero crossings in the inc
 
 const String VCOTuner::Errors::noZeroCrossings = "The incoming audio signal does not seem to contain any zero-crossings. Are you sure the oscillator signal is getting through to us? Check your audio device settings.";
 
-const String VCOTuner::Errors::highJitterTimeOut = "Timeout. " + highJitter;
+const String VCOTuner::Errors::bufferFull = "The signal never settled within the measurement buffer - it kept producing new zero-crossings without ever reaching a steady rate. Try a lower resolution setting (fewer periods per note); that gives each note more storage headroom before this limit is hit.";
 
-const String VCOTuner::Errors::stableTimeout = "There are some zero crossings in the incoming signal and they seem to come in at a constant rate - but they are coming in much slower than they should be. Are you recording from the right oscillator?";
+const String VCOTuner::Errors::stableTimeout = "The measurement did not finish in time. Either the incoming zero-crossings never settled into a steady rate, or the signal was too weak or intermittent for enough of them to arrive in the first place. Are you recording from the right oscillator, on the right channel, and is its level high enough?";
 
 const String VCOTuner::Errors::noFrequencyChangeBetweenMeasurements = "Apparently the frequency of the oscillator is not changing between measurements. Please check if your MIDI-to-CV interface is set to the correct MIDI channel and make sure that it is selected as the default midi output device in the audio and midi settings.";
 
