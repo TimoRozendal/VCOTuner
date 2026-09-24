@@ -297,8 +297,14 @@ void VCOTuner::timerCallback()
                 trySendMidiNoteOff(currentPitch);
                 
                 // check if the frequency has changed compared to the reference frequency
-                // if not, it is likely that the MIDI output is not working. Do this only for the very first measurement
+                // if not, it is likely that the MIDI output is not working. This check runs
+                // on the first successfully measured note other than the reference pitch
+                // itself: currentIndex only advances on success, so it can still be 0 when
+                // the sweep reaches referencePitch, and comparing referencePitch's own
+                // frequency against referenceFrequency would be meaningless (they are the
+                // same measurement by construction).
                 if (currentIndex == 0
+                    && currentPitch != referencePitch
                     && std::abs(result.frequency - referenceFrequency) / referenceFrequency < 0.1)
                 {
                     errors.add(Errors::noFrequencyChangeBetweenMeasurements);

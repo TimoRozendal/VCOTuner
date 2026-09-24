@@ -352,10 +352,12 @@ TEST_CASE ("every shipped pitch and resolution reaches stable")
     // The bespoke fixtures above each pin one terminal status. This pins the
     // arithmetic between requiredPeriods, stabilityWindow and maxPeriods
     // across the settings a user can actually select: the pitch-range combo
-    // spans MIDI 24..96 and the resolution combo offers 20, 100 and 400
-    // periods per note. maxPeriods (600) has to hold requiredPeriods plus the
-    // stabilityWindow (5) run-in that validPeriods() discards. Raising the top
-    // resolution past 595 fails here rather than in a user's sweep.
+    // spans MIDI 24..96, and requiredPeriods takes 20, 100 and 400 as three
+    // representative values sampled from the shipped resolution combo's full
+    // set of {20, 50, 100, 200, 400} periods per note. maxPeriods (600) has to
+    // hold requiredPeriods plus the stabilityWindow (5) run-in that
+    // validPeriods() discards. Raising the top resolution past 595 fails here
+    // rather than in a user's sweep.
     const double sampleRate = 48000.0;
 
     for (int midi : { 24, 60, 96 })
