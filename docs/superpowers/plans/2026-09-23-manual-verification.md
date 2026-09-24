@@ -222,3 +222,27 @@ which links no JUCE at all.
       MIDI note numbers along the bottom of the graph are evenly spaced, not
       overlapping, and not dropping out at narrow window widths. Resize the
       window to its minimum and back.
+
+## Out-of-range markers in the report
+
+The report plots a fixed +/-15 cents (`ReportDisplayScreen.cpp`). A note whose
+reading falls outside that used to draw nothing, so a badly tracking oscillator
+went blank at exactly the notes worth looking at - indistinguishable from a note
+that was never measured. An arrow now marks the edge the reading ran off.
+
+The live graph auto-scales to fit every reading, so it can never trigger there;
+this is a report-only behaviour.
+
+- [ ] Produce a report from an oscillator that is off by more than 15 cents
+      somewhere in its range - detune it deliberately if need be. Confirm those
+      notes show a solid triangle at the top edge (reading too high) or the
+      bottom edge (too low), rather than a blank column.
+- [ ] Confirm the arrow points the way the reading went, and sits in that note's
+      own column, lined up with its MIDI number on the axis.
+- [ ] Confirm notes still inside +/-15 cents draw normally, with their band and
+      centre line, and get no arrow.
+
+Verified during development against a synthetic fixture: readings of +28 and
+-31 cents produced correct up and down arrows while in-range notes drew normally.
+What remains unverified is the path through real report generation with real
+measurements.
