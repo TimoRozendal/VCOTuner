@@ -15,7 +15,7 @@ cmake_minimum_required(VERSION 3.22)
 # `project()` command. `project()` sets up some helpful variables that describe source/binary
 # directories, and the current project version. This is a standard CMake command.
 
-project(VCO_TUNER VERSION 0.3.0)
+project(VCO_TUNER VERSION 0.4.0)
 
 # Set c++17
 set(CMAKE_CXX_STANDARD 17)
