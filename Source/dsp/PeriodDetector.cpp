@@ -70,14 +70,16 @@ void PeriodDetector::processBlock (const float* samples, int numSamples)
     {
         const double s = (double) samples[i];
 
-        // Min/max keep updating, but the trigger level is latched once at the
-        // end of warm-up: a threshold that drifts mid-measurement would inject
-        // timing error into exactly the periods we are trying to measure.
-        if (s < runningMin) runningMin = s;
-        if (s > runningMax) runningMax = s;
-
+        // The trigger level is latched once, at the end of warm-up: a level
+        // that drifted mid-measurement would inject timing error into exactly
+        // the periods we are trying to measure. So min/max are only tracked
+        // while warm-up is running - finishWarmup() is their only reader, and
+        // it runs exactly once.
         if (warmupRemaining > 0)
         {
+            if (s < runningMin) runningMin = s;
+            if (s > runningMax) runningMax = s;
+
             if (--warmupRemaining == 0)
                 finishWarmup();
         }
