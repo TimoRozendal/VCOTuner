@@ -13,6 +13,13 @@
 
 #include "../JuceLibraryCode/JuceHeader.h"
 
+#include "dsp/MeasurementError.h"
+#include "dsp/MeasurementStatistics.h"
+#include "dsp/PeriodDetector.h"
+
+#include <atomic>
+#include <vector>
+
 class VCOTuner: public ChangeListener,
                 private Timer,
                 public AudioIODeviceCallback
@@ -65,6 +72,10 @@ public:
     /** returns all error messages and removes them from the internal list */
     StringArray getLastErrors();
     
+    /** the notes that failed to measure during the current sweep */
+    const std::vector<vcotuner::NoteFailure>& getFailures() const
+        { return failureTracker.failures(); }
+    
     /** inherited from AudioIODeviceCallback */
     virtual void audioDeviceIOCallback (const float** inputChannelData,
                                         int numInputChannels,
@@ -87,6 +98,11 @@ public:
         virtual ~Listener() {}
         
         virtual void newMeasurementReady(const measurement_t& /*m*/) {}
+
+        /** a single note could not be measured. The sweep carries on without it. */
+        virtual void measurementFailed (int /*midiPitch*/,
+                                        vcotuner::MeasurementError /*reason*/) {}
+
         virtual void tunerStarted() {}
         virtual void tunerStopped() {}
         virtual void tunerFinished() {}
@@ -119,18 +135,17 @@ private:
     void switchState(State newState);
     void trySendMidiNoteOn(int pitch);
     void trySendMidiNoteOff(int pitch);
+    /** hands the detector to the audio thread for a measurement at this pitch */
+    void startDetectorRun(int pitch);
+    /** records the failure, tells the listeners and moves on to the next note */
+    void failCurrentNote(vcotuner::MeasurementError reason);
+    /** the user facing message for a detector status that is not 'stable' */
+    const String& errorMessageForStatus(vcotuner::DetectorStatus status) const;
     int currentlyPlayingMidiNote;
     
     // counts cycles since the last state transition
     int cycleCounter;
 
-    
-    /** error message from the audio thread */
-    enum LowLevelError
-    {
-        noError = 0,
-        notStable // frequency not stable (= too much jitter)
-    };
     
     /** lowest pitch to be measured */
     int lowestPitch;
@@ -143,9 +158,9 @@ private:
     int currentIndex;
     
     /** midi note for which the reference measurement was done. */
-    int referencePitch;
-    /** frequency returned during the reference measurement */
-    float referenceFrequency;
+    int referencePitch = 0;
+    /** frequency returned during the reference measurement, 0 until measured */
+    float referenceFrequency = 0.0f;
     
     /** a list with recent error messages */
     StringArray errors;
@@ -157,24 +172,29 @@ private:
     State state;
     
     
-    /** the following must only be accessed from the message thread, when startMeasurement == false and
-     be accessed from the audio thread, when startMeasurement == true */
-    bool startMeasurement; // set by message thread, reset by audio thread.
-    bool stopMeasurement;  // set by message thread, reset by audio thread.
-    static const int maxNumPeriodLengths = 600;
-    double periodLengths[maxNumPeriodLengths]; // all measured period lengths of this measurement
+    /** The detector is owned by the audio thread while startMeasurement is true.
+        The message thread may read it only after it has observed startMeasurement
+        == false, which the audio thread publishes after its last write. */
+    vcotuner::PeriodDetector detector;
+    std::atomic<bool> startMeasurement { false }; // set by message thread, reset by audio thread.
+    std::atomic<bool> stopMeasurement  { false }; // set by message thread, reset by audio thread.
+    /** the detector's status, published by the audio thread after every block */
+    std::atomic<int>  detectorStatusFlag { (int) vcotuner::DetectorStatus::collecting };
+
+    vcotuner::DetectorStatus lastDetectorStatus() const noexcept
+        { return (vcotuner::DetectorStatus) detectorStatusFlag.load(); }
+
     int numPeriodSamples; // number of periods to measure before averaging
-    int indexOfFirstValidPeriodLength; // the index in periodLengths[] at which the system has reached a stable frequency
-                                       // this is also the first valid period length measurement that is included in the result
-    int periodLengthsHead;
-    LowLevelError lError; // holds error message from the audio thread
-    
-    /** the following are only to be accessed from the audio thread */
-    int sampleCounter; // counts samples since the start of a measurement
-    double lastZeroCrossing; // holds the sample counters value of the last zero corssing (- => +)
-    float lastSample;
-    double sampleRate;
-    bool initialized;
+    /** length of the detector's level tracking window, sized per note */
+    int currentWarmupSamples = 2048;
+
+    /** the notes that failed during the current sweep */
+    vcotuner::FailureTracker failureTracker;
+
+    /** written in audioDeviceAboutToStart, before any measurement can run */
+    double sampleRate = 44100.0;
+    /** only to be accessed from the audio thread */
+    bool initialized = false;
     
     int continuousFrequencyMeasurementPitch;
     double continuousFreqMeasurementResult;
