@@ -36,6 +36,9 @@ void Visualizer::paint(juce::Graphics &g, int width, int height)
     double min = 0;
     for (int i = 0; i < measurements.size(); i++)
     {
+        if (failedPitches.contains (measurements[i].midiPitch))
+            continue;
+
         double value = measurements[i].pitchOffset;
         double deviation = measurements[i].pitchDeviation;
         if (value - deviation < min)
@@ -131,16 +134,21 @@ void Visualizer::paintWithFixedScaling(Graphics& g, int width, int height, doubl
     {
         float left = sidebarWidth + i*(float)columnWidth;
         
+        const bool failed = failedPitches.contains (measurements[i].midiPitch);
+        const Colour bandColour  = failed ? Colours::orangered.withAlpha (0.35f)
+                                          : Colours::springgreen.withAlpha (0.4f);
+        const Colour pointColour = failed ? Colours::orangered : Colours::green;
+
         // draw deviation
         float maxPosition = (float) ((measurements[i].pitchOffset + measurements[i].pitchDeviation - min) * vertScaling);
         float minPosition = (float) ((measurements[i].pitchOffset - measurements[i].pitchDeviation - min) * vertScaling);
-        
-        g.setColour(Colours::springgreen.withAlpha(0.4f));
+
+        g.setColour(bandColour);
         g.fillRect(left, yFlip(maxPosition), (float) columnWidth, maxPosition - minPosition);
-        
+
         // draw average value
         float pointPosition = (float) ((measurements[i].pitchOffset - min) * vertScaling);
-        g.setColour(Colours::green);
+        g.setColour(pointColour);
         g.drawLine(left, yFlip(pointPosition), left + (float) columnWidth, yFlip(pointPosition));
     }
     
@@ -231,6 +239,10 @@ float Visualizer::yFlip(float y)
 
 void Visualizer::newMeasurementReady(const VCOTuner::measurement_t& m)
 {
+    // a later cycle may have re-measured a note that previously failed;
+    // a fresh successful reading means it is no longer failed.
+    failedPitches.removeFirstMatchingValue (m.midiPitch);
+
     bool found = false;
     for (int i = 0; i < measurements.size(); i++)
     {
@@ -241,9 +253,15 @@ void Visualizer::newMeasurementReady(const VCOTuner::measurement_t& m)
             repaint();
         }
     }
-    
+
     if (!found)
         measurements.add(m);
-    
+
+    repaint();
+}
+
+void Visualizer::measurementFailed (int midiPitch, vcotuner::MeasurementError)
+{
+    failedPitches.addIfNotAlreadyThere (midiPitch);
     repaint();
 }

@@ -25,12 +25,17 @@ public:
     virtual void paint(Graphics& g);
     
     virtual void newMeasurementReady(const VCOTuner::measurement_t& m);
-    
-    void clearCache() { measurements.clear(); }
+    void measurementFailed (int midiPitch, vcotuner::MeasurementError reason) override;
+
+    void clearCache() { measurements.clear(); failedPitches.clear(); }
 private:
     /** holds the list of completed measurements */
     Array<VCOTuner::measurement_t> measurements;
-    
+    /** midi pitches that failed to measure during the current sweep;
+        cleared alongside measurements, and individually cleared in
+        newMeasurementReady() when a note recovers on a later cycle */
+    Array<int> failedPitches;
+
     float heightForFlipping;
     float yFlip(float y);
     
