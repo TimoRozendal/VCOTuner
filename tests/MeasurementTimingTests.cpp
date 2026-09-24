@@ -39,8 +39,7 @@ TEST_CASE ("the latency allowance is included")
     // floor; at 440 Hz with the brief's original numPeriods=20, the raw
     // (unfloored) cycle counts are 10 and 40 - both still below the floor -
     // so both collapse to 50 and the comparison below is unsatisfiable by
-    // any implementation that honours the documented floor. See
-    // task-8-report.md for the full root-cause analysis.
+    // any implementation that honours the documented floor.
     const int without = computeTimeoutCycles (440.0, 400, 0.01, 0.0);
     const int with    = computeTimeoutCycles (440.0, 400, 0.01, 0.3);
     REQUIRE (with > without);
