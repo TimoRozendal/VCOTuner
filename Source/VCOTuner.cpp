@@ -641,11 +641,12 @@ void showMeasurementFailureSummary (const std::vector<vcotuner::NoteFailure>& fa
 }
 
 /** inherited from AudioIODeviceCallback */
-void VCOTuner::audioDeviceIOCallback (const float** inputChannelData,
+void VCOTuner::audioDeviceIOCallbackWithContext (const float* const* inputChannelData,
                                     int numInputChannels,
-                                    float** outputChannelData,
+                                    float* const* outputChannelData,
                                     int numOutputChannels,
-                                    int numSamples)
+                                    int numSamples,
+                                    const AudioIODeviceCallbackContext&)
 {
     // Channels that were not enabled when the device was opened are null, and
     // AudioBuffer::clear() would memset straight through them.

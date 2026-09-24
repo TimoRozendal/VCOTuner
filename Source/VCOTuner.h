@@ -76,12 +76,19 @@ public:
     const std::vector<vcotuner::NoteFailure>& getFailures() const
         { return failureTracker.failures(); }
     
-    /** inherited from AudioIODeviceCallback */
-    virtual void audioDeviceIOCallback (const float** inputChannelData,
-                                        int numInputChannels,
-                                        float** outputChannelData,
-                                        int numOutputChannels,
-                                        int numSamples);
+    /** inherited from AudioIODeviceCallback.
+
+        Marked `override` deliberately. JUCE 8 removed the older
+        audioDeviceIOCallback(), and a near-miss signature without `override`
+        still compiles - it just silently becomes a function JUCE never calls,
+        leaving the tuner unable to hear anything. `override` turns that
+        mistake into a compile error. */
+    void audioDeviceIOCallbackWithContext (const float* const* inputChannelData,
+                                           int numInputChannels,
+                                           float* const* outputChannelData,
+                                           int numOutputChannels,
+                                           int numSamples,
+                                           const AudioIODeviceCallbackContext& context) override;
     
     /** inherited from AudioIODeviceCallback */
     virtual void audioDeviceAboutToStart (AudioIODevice* device);

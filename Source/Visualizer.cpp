@@ -172,7 +172,7 @@ void Visualizer::paintWithFixedScaling(Graphics& g, int width, int height, doubl
     const int numPitchTextIntervals = 5;
     const int pitchTextIntervals[numPitchTextIntervals] = {1, 2, 5, 10, 20};
     int currentPitchTextIntervalIndex = 0;
-    while (g.getCurrentFont().getStringWidth("123.") > pitchTextIntervals[currentPitchTextIntervalIndex] * columnWidth)
+    while (GlyphArrangement::getStringWidth(g.getCurrentFont(), "123.") > pitchTextIntervals[currentPitchTextIntervalIndex] * columnWidth)
     {
         currentPitchTextIntervalIndex++;
         if (currentPitchTextIntervalIndex >= numPitchTextIntervals)
@@ -197,7 +197,7 @@ void Visualizer::paintWithFixedScaling(Graphics& g, int width, int height, doubl
     for (int i = startLine; i <= endLine; i += pitchTextInterval)
     {
         g.setColour(Colours::black);
-        float textWidth = g.getCurrentFont().getStringWidth(String(measurements[i].midiPitch));
+        float textWidth = GlyphArrangement::getStringWidth(g.getCurrentFont(), String(measurements[i].midiPitch));
         float left = sidebarWidth + i * float(columnWidth);
         float x = left + float(columnWidth)/2.0f - textWidth/2.0f;
         float y = imageHeight;
@@ -213,7 +213,7 @@ void Visualizer::paintWithFixedScaling(Graphics& g, int width, int height, doubl
             g.setColour(Colours::blue.withAlpha(0.05f));
             g.fillRect(Rectangle<float>(left, 0, float(columnWidth), imageHeight));
         }
-        if (pitchTextInterval == 1 && columnWidth < g.getCurrentFont().getStringWidth("123."))
+        if (pitchTextInterval == 1 && columnWidth < GlyphArrangement::getStringWidth(g.getCurrentFont(), "123."))
         {
             if (i % 2 == 0)
             {
