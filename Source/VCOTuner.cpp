@@ -223,6 +223,12 @@ void VCOTuner::timerCallback()
             break;
         }
         case prepMeasurement:
+            // wait for low level state machine to stop measuring: handing it a
+            // new run while a stop request is pending would have it consume the
+            // stale request and kill the run it was meant to start.
+            if (stopMeasurement)
+                break;
+            
             if (cycleCounter == 0)
             {
                 // send midi note
@@ -427,6 +433,8 @@ void VCOTuner::timerCallback()
 void VCOTuner::startContinuousMeasurement(int pitch)
 {
     continuousFrequencyMeasurementPitch = pitch;
+    continuousFreqMeasurementResult = -1.0;
+    continuousFreqMeasurementDeviation = 0.0;
     if (state != stopped && state != finished)
         switchState(stopped);
     state = prepareContinuousFrequencyMeasurement;
@@ -484,7 +492,13 @@ void VCOTuner::startDetectorRun(int pitch)
 void VCOTuner::failCurrentNote(vcotuner::MeasurementError reason)
 {
     trySendMidiNoteOff(currentPitch);
-    stopMeasurement = true;
+    
+    // Only cancel a run that is actually in flight - the timeout path. When the
+    // detector finished on its own the audio thread has already cleared its own
+    // state, and a stop request left armed here would be consumed by the next
+    // note's run instead.
+    if (startMeasurement)
+        stopMeasurement = true;
     
     // trySendMidiNoteOff() stops the tuner when the MIDI device has gone away.
     // That is fatal, so do not resume the sweep on top of it.
@@ -531,10 +545,13 @@ void VCOTuner::audioDeviceIOCallback (const float** inputChannelData,
                                     int numOutputChannels,
                                     int numSamples)
 {
+    // Channels that were not enabled when the device was opened are null, and
+    // AudioBuffer::clear() would memset straight through them.
     if (outputChannelData != nullptr)
     {
-        AudioBuffer<float> outputBuffer(outputChannelData, numOutputChannels, numSamples);
-        outputBuffer.clear();
+        for (int channel = 0; channel < numOutputChannels; channel++)
+            if (outputChannelData[channel] != nullptr)
+                FloatVectorOperations::clear(outputChannelData[channel], numSamples);
     }
 
     if (stopMeasurement)
@@ -559,8 +576,9 @@ void VCOTuner::audioDeviceIOCallback (const float** inputChannelData,
         cfg.sampleRate      = sampleRate;
         cfg.requiredPeriods = numPeriodSamples;
         cfg.warmupSamples   = currentWarmupSamples;
-        // cfg.maxPeriods stays at its default, which is the capacity the
-        // constructor already reserved, so this reset() does not allocate.
+        // cfg.maxPeriods must stay at the default the constructor reserved,
+        // otherwise this reset() would allocate on the audio thread.
+        jassert(cfg.maxPeriods == vcotuner::PeriodDetectorConfig().maxPeriods);
         detector.reset(cfg);
         initialized = true;
     }

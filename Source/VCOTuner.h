@@ -197,8 +197,10 @@ private:
     bool initialized = false;
     
     int continuousFrequencyMeasurementPitch;
-    double continuousFreqMeasurementResult;
-    double continuousFreqMeasurementDeviation;
+    /** -1 until a pass has settled: ReportPrepScreen polls this and advances
+        the report wizard on it, so it must never hold an undefined value. */
+    double continuousFreqMeasurementResult = -1.0;
+    double continuousFreqMeasurementDeviation = 0.0;
     
     int singleMeasurementPitch;
     double singleMeasurementResult;
