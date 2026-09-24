@@ -9,7 +9,8 @@ FetchContent_MakeAvailable(Catch2)
 add_executable(VCOTunerTests
     PeriodDetectorTests.cpp
     MeasurementStatisticsTests.cpp
-    MeasurementErrorTests.cpp)
+    MeasurementErrorTests.cpp
+    MeasurementTimingTests.cpp)
 
 target_link_libraries(VCOTunerTests PRIVATE vcotuner_dsp Catch2::Catch2WithMain)
 

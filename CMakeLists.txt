@@ -60,7 +60,8 @@ include_directories(Source)
 add_library(vcotuner_dsp STATIC
     Source/dsp/PeriodDetector.cpp
     Source/dsp/MeasurementStatistics.cpp
-    Source/dsp/MeasurementError.cpp)
+    Source/dsp/MeasurementError.cpp
+    Source/dsp/MeasurementTiming.cpp)
 target_include_directories(vcotuner_dsp PUBLIC Source)
 target_compile_features(vcotuner_dsp PUBLIC cxx_std_17)
 
