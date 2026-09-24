@@ -36,9 +36,14 @@ private:
         newMeasurementReady() when a note recovers on a later cycle */
     Array<int> failedPitches;
 
+    /** replaces the entry for m.midiPitch if one exists, otherwise appends m.
+        Shared by newMeasurementReady() and measurementFailed() so a pitch
+        never occupies more than one column. */
+    void upsertMeasurement (const VCOTuner::measurement_t& m);
+
     float heightForFlipping;
     float yFlip(float y);
-    
+
     VCOTuner* tuner;
 };
 

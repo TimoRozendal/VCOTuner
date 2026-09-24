@@ -133,22 +133,34 @@ void Visualizer::paintWithFixedScaling(Graphics& g, int width, int height, doubl
     for (int i = 0; i < measurements.size(); i++)
     {
         float left = sidebarWidth + i*(float)columnWidth;
-        
-        const bool failed = failedPitches.contains (measurements[i].midiPitch);
-        const Colour bandColour  = failed ? Colours::orangered.withAlpha (0.35f)
-                                          : Colours::springgreen.withAlpha (0.4f);
-        const Colour pointColour = failed ? Colours::orangered : Colours::green;
+
+        if (failedPitches.contains (measurements[i].midiPitch))
+        {
+            // no usable measurement for this note: a point/band at offset
+            // zero would misleadingly look "in tune", so mark the whole
+            // column instead with a shape that doesn't depend on hue.
+            g.setColour (Colours::orangered.withAlpha (0.15f));
+            g.fillRect (left, 0.0f, (float) columnWidth, (float) imageHeight);
+
+            g.setColour (Colours::orangered);
+            const float margin = (float) columnWidth * 0.25f;
+            const float crossTop = (float) imageHeight * 0.25f;
+            const float crossBottom = (float) imageHeight * 0.75f;
+            g.drawLine (left + margin, crossTop, left + (float) columnWidth - margin, crossBottom, 2.0f);
+            g.drawLine (left + margin, crossBottom, left + (float) columnWidth - margin, crossTop, 2.0f);
+            continue;
+        }
 
         // draw deviation
         float maxPosition = (float) ((measurements[i].pitchOffset + measurements[i].pitchDeviation - min) * vertScaling);
         float minPosition = (float) ((measurements[i].pitchOffset - measurements[i].pitchDeviation - min) * vertScaling);
 
-        g.setColour(bandColour);
+        g.setColour(Colours::springgreen.withAlpha(0.4f));
         g.fillRect(left, yFlip(maxPosition), (float) columnWidth, maxPosition - minPosition);
 
         // draw average value
         float pointPosition = (float) ((measurements[i].pitchOffset - min) * vertScaling);
-        g.setColour(pointColour);
+        g.setColour(Colours::green);
         g.drawLine(left, yFlip(pointPosition), left + (float) columnWidth, yFlip(pointPosition));
     }
     
@@ -237,25 +249,27 @@ float Visualizer::yFlip(float y)
     return heightForFlipping - y;
 }
 
+void Visualizer::upsertMeasurement (const VCOTuner::measurement_t& m)
+{
+    for (int i = 0; i < measurements.size(); i++)
+    {
+        if (measurements[i].midiPitch == m.midiPitch)
+        {
+            measurements.set (i, m);
+            return;
+        }
+    }
+
+    measurements.add (m);
+}
+
 void Visualizer::newMeasurementReady(const VCOTuner::measurement_t& m)
 {
     // a later cycle may have re-measured a note that previously failed;
     // a fresh successful reading means it is no longer failed.
     failedPitches.removeFirstMatchingValue (m.midiPitch);
 
-    bool found = false;
-    for (int i = 0; i < measurements.size(); i++)
-    {
-        if (measurements[i].midiPitch == m.midiPitch)
-        {
-            measurements.set(i, m);
-            found = true;
-            repaint();
-        }
-    }
-
-    if (!found)
-        measurements.add(m);
+    upsertMeasurement (m);
 
     repaint();
 }
@@ -263,5 +277,14 @@ void Visualizer::newMeasurementReady(const VCOTuner::measurement_t& m)
 void Visualizer::measurementFailed (int midiPitch, vcotuner::MeasurementError)
 {
     failedPitches.addIfNotAlreadyThere (midiPitch);
+
+    // give the pitch a column even if it has never produced a measurement,
+    // so a first-attempt failure is visible instead of just closing the gap.
+    // All numeric fields stay at zero; numMeasurements == 0 marks this as a
+    // placeholder. A later successful reading overwrites it via upsertMeasurement.
+    VCOTuner::measurement_t placeholder {};
+    placeholder.midiPitch = midiPitch;
+    upsertMeasurement (placeholder);
+
     repaint();
 }
