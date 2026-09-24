@@ -607,12 +607,16 @@ String describeError (vcotuner::MeasurementError error)
         case MeasurementError::noFrequencyChange:
         case MeasurementError::noMidiDevice:
         case MeasurementError::audioDeviceStopped:
-        default:
-            // The fatal reasons never reach here - they abort the sweep and
-            // are reported through tunerStopped() instead of the per-note
-            // failure list this describes.
-            return "failed";
+            break;
+        // No default label, deliberately, matching isFatal(),
+        // errorForStatus() and errorMessageForStatus(): -Wswitch then flags a
+        // future enumerator that nobody has classified here.
     }
+
+    // The fatal reasons never reach here - they abort the sweep and are
+    // reported through tunerStopped() instead of the per-note failure list
+    // this describes.
+    return "failed";
 }
 
 void showMeasurementFailureSummary (const std::vector<vcotuner::NoteFailure>& failures)
