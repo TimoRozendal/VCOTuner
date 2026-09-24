@@ -346,3 +346,47 @@ TEST_CASE ("valid periods exclude the unstable run-in")
     REQUIRE (detector.numValidPeriods() == 10);
     REQUIRE (detector.validPeriods() == detector.periodData() + 5);
 }
+
+TEST_CASE ("every shipped pitch and resolution reaches stable")
+{
+    // The bespoke fixtures above each pin one terminal status. This pins the
+    // arithmetic between requiredPeriods, stabilityWindow and maxPeriods
+    // across the settings a user can actually select: the pitch-range combo
+    // spans MIDI 24..96 and the resolution combo offers 20, 100 and 400
+    // periods per note. maxPeriods (600) has to hold requiredPeriods plus the
+    // stabilityWindow (5) run-in that validPeriods() discards. Raising the top
+    // resolution past 595 fails here rather than in a user's sweep.
+    const double sampleRate = 48000.0;
+
+    for (int midi : { 24, 60, 96 })
+    {
+        for (int requiredPeriods : { 20, 100, 400 })
+        {
+            const double freq = 440.0 * std::pow (2.0, (midi - 69) / 12.0);
+
+            PeriodDetectorConfig cfg;
+            cfg.requiredPeriods = requiredPeriods;
+            // VCOTuner::startDetectorRun() sizes the warm-up window to two
+            // cycles of the expected frequency, clamped to [256, 48000].
+            cfg.warmupSamples = std::min (48000,
+                                          std::max (256, (int) (2.0 * sampleRate / freq)));
+
+            // Enough signal for the run-in, the required periods and a margin.
+            const int numSamples = cfg.warmupSamples
+                + (int) ((requiredPeriods + 2 * cfg.stabilityWindow + 4)
+                         * sampleRate / freq)
+                + 1000;
+            const auto samples = makeSine (freq, sampleRate, numSamples, 0.9, 0.0);
+
+            PeriodDetector detector;
+            detector.reset (cfg);
+            detector.processBlock (samples.data(), numSamples);
+
+            INFO ("midi=" << midi << " freq=" << freq
+                  << " requiredPeriods=" << requiredPeriods
+                  << " numPeriods=" << detector.numPeriods());
+            REQUIRE (detector.status() == DetectorStatus::stable);
+            REQUIRE (detector.numValidPeriods() >= requiredPeriods);
+        }
+    }
+}
