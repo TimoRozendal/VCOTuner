@@ -65,7 +65,11 @@ add_library(vcotuner_dsp STATIC
 target_include_directories(vcotuner_dsp PUBLIC Source)
 target_compile_features(vcotuner_dsp PUBLIC cxx_std_17)
 
-option(VCOTUNER_BUILD_TESTS "Build the unit tests" ON)
+# OFF by default: the three artifact-producing CI jobs configure with a bare
+# `cmake -B build`, and ON would have each of them FetchContent Catch2 from
+# github.com on every push. A plain local configure would need network access
+# too. The unitTests job passes -DVCOTUNER_BUILD_TESTS=ON explicitly.
+option(VCOTUNER_BUILD_TESTS "Build the unit tests" OFF)
 if(VCOTUNER_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
