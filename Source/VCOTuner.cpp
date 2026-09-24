@@ -559,7 +559,7 @@ String describeError (vcotuner::MeasurementError error)
         case MeasurementError::stableTimeout:
             return "timed out";
         case MeasurementError::bufferFull:
-            return "never settled within the measurement buffer; try a lower resolution";
+            return "settled, but not long enough; try a lower resolution";
         case MeasurementError::none:
         case MeasurementError::noFrequencyChange:
         case MeasurementError::noMidiDevice:
@@ -725,7 +725,7 @@ const String VCOTuner::Errors::highJitter = "There are zero crossings in the inc
 
 const String VCOTuner::Errors::noZeroCrossings = "The incoming audio signal does not seem to contain any zero-crossings. Are you sure the oscillator signal is getting through to us? Check your audio device settings.";
 
-const String VCOTuner::Errors::bufferFull = "The signal never settled within the measurement buffer - it kept producing new zero-crossings without ever reaching a steady rate. Try a lower resolution setting (fewer periods per note); that gives each note more storage headroom before this limit is hit.";
+const String VCOTuner::Errors::bufferFull = "The signal did settle into a steady rate - it just didn't hold that rate long enough to finish the measurement before the buffer ran out of storage. Try a lower resolution setting (fewer periods per note); needing fewer periods means the same buffer is enough to complete the measurement.";
 
 const String VCOTuner::Errors::stableTimeout = "The measurement did not finish in time. Either the incoming zero-crossings never settled into a steady rate, or the signal was too weak or intermittent for enough of them to arrive in the first place. Are you recording from the right oscillator, on the right channel, and is its level high enough?";
 
