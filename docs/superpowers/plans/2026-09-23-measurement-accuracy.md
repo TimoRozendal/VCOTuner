@@ -1439,8 +1439,12 @@ TEST_CASE ("low pitches get a proportionally longer timeout")
 
 TEST_CASE ("the latency allowance is included")
 {
-    const int without = computeTimeoutCycles (440.0, 20, 0.01, 0.0);
-    const int with    = computeTimeoutCycles (440.0, 20, 0.01, 0.3);
+    // Both sides must clear the 50-cycle floor for the comparison to mean
+    // anything: at 440 Hz with 20 periods the raw counts are 10 and 40, which
+    // both clamp to 50, making `with > without` unsatisfiable by construction.
+    // 400 periods puts them at 182 and 212.
+    const int without = computeTimeoutCycles (440.0, 400, 0.01, 0.0);
+    const int with    = computeTimeoutCycles (440.0, 400, 0.01, 0.3);
     REQUIRE (with > without);
 }
 
@@ -2086,3 +2090,52 @@ git commit -m "docs: add manual verification checklist for measurement changes"
 | Live status line, report-mode dialog, silent stop | 12 |
 | Divide-by-zero on short period sequences | 6 |
 | GUI and hardware paths | 13 (manual) |
+
+---
+
+## Amendments made during implementation
+
+Recorded here rather than silently rewriting the task bodies above, so the
+original plan and the decisions that changed it both stay visible.
+
+**Task 3 — test bound corrected.** The amplitude-adaptation test asserted a
+period count of `>= 435`, written by estimate. The fixture yields 434
+deterministically: warm-up consumes 4.4 cycles, the Schmitt trigger needs up to
+another half cycle to arm, and the first crossing has no predecessor. The test
+now asserts amplitude-independence, which is what it was named for.
+
+**Task 5 — stability gate strengthened.** The gate as planned latched after a
+single 5-period window and never re-validated, so a drifting oscillator could
+satisfy one lucky window and be reported as a confident measurement. The spec
+requires `stable` to mean genuinely steady, so `updateStability` now re-checks
+the whole collected set before declaring success. The shipping app has the same
+hole at `Source/VCOTuner.cpp` (it sets `indexOfFirstValidPeriodLength` once and
+never rechecks).
+
+**Task 8 — latency test fixture corrected.** `"the latency allowance is
+included"` used 20 periods at 440 Hz, where both raw counts clamp to the 50-cycle
+floor, making `with > without` unsatisfiable by construction. Now 400 periods.
+
+**Task 9 — no allocation on the audio thread.** The planned callback called
+`detector.reset(cfg)`, and `reset` reserves the period buffer — a heap allocation
+on the real-time thread. `PeriodDetector::prepare(int)` was added so the
+constructor reserves once, off the audio path.
+
+**Tasks 9 and 10 — landed as one commit set.** Task 9 removes members Task 10's
+code still references, so Task 9 could not compile alone.
+
+**Task 11 — failed notes need a column and a shape.** As planned, `measurements`
+was populated only by `newMeasurementReady`, and both the auto-scale and drawing
+loops index by position in that array — so a note failing before it had ever
+succeeded got no column and was not drawn at all. `measurementFailed` now upserts
+a placeholder so the pitch owns a column. The marker is also a translucent fill
+plus an "×" rather than the same mark recoloured: drawing a point at offset zero
+would mislead (zero is where a perfectly tuned note sits), and the planned
+green/orangered pair differs by only ~0.05 relative luminance, which is the
+classic red/green confusion case with no brightness fallback.
+
+**Task 12 — report summary moved to where reports end.** `startCreatingReport()`
+had no caller anywhere, on master either, so `creatingReport` was never true and
+the planned report-mode dialog was unreachable. The summary now fires from
+`ReportDetailsEditorScreen::tunerFinished()` at its two genuine completion
+points; the dead members were removed.
