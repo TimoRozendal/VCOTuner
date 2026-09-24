@@ -5,6 +5,12 @@
 namespace vcotuner
 {
 
+void PeriodDetector::prepare (int maxPeriods)
+{
+    if (maxPeriods > 0)
+        periods.reserve ((size_t) maxPeriods);
+}
+
 void PeriodDetector::reset (const PeriodDetectorConfig& config)
 {
     cfg = config;

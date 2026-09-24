@@ -30,6 +30,16 @@ enum class DetectorStatus
 class PeriodDetector
 {
 public:
+    /** Allocates period storage up front.
+
+        reset() is called from the real-time audio thread, where a heap
+        allocation can cause dropouts. Call this once from a non-realtime
+        thread with the largest maxPeriods any later config will use: the
+        reserve inside reset() then asks for a capacity the buffer already
+        has, which the standard requires to be a no-op.
+    */
+    void prepare (int maxPeriods);
+
     void reset (const PeriodDetectorConfig& config);
     void processBlock (const float* samples, int numSamples);
 
