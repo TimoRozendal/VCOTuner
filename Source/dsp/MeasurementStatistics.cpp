@@ -34,6 +34,11 @@ PeriodFit fitPeriod (const double* periods, int numPeriods)
         sxy += dx * (times[(size_t) i] - meanY);
     }
 
+    // Unreachable by design, not load-bearing: sxx depends only on the
+    // crossing indices 0..n-1, never on the period values, and the
+    // numPeriods < 2 guard above already ensures n >= 3, for which sxx is
+    // always strictly positive. Kept as a defensive guard against future
+    // changes to how x-values are chosen.
     if (sxx <= 0.0)
         return fit;
 

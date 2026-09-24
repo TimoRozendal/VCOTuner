@@ -31,8 +31,12 @@ struct MeasurementResult
     time, so their errors are negatively correlated and the spread of the
     periods badly overstates the uncertainty of their mean.
 
-    Requires at least 3 periods for a meaningful standard error; fewer
-    returns valid == false with finite zeroed fields.
+    Requires at least 2 periods (3 crossing times) to return a fit; fewer
+    returns valid == false with finite zeroed fields. Exactly 2 periods
+    leaves a single degree of freedom (n - 2 == 1), which is still a
+    well-defined standard error but a deliberately wide one -- a large
+    error bar is precisely how low confidence should be communicated,
+    rather than discarding the measurement outright.
 */
 PeriodFit fitPeriod (const double* periods, int numPeriods);
 
