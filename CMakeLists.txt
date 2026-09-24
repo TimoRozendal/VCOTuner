@@ -59,7 +59,8 @@ include_directories(Source)
 # Pure DSP logic, no JUCE dependency. Linked by both the app and the tests.
 add_library(vcotuner_dsp STATIC
     Source/dsp/PeriodDetector.cpp
-    Source/dsp/MeasurementStatistics.cpp)
+    Source/dsp/MeasurementStatistics.cpp
+    Source/dsp/MeasurementError.cpp)
 target_include_directories(vcotuner_dsp PUBLIC Source)
 target_compile_features(vcotuner_dsp PUBLIC cxx_std_17)
 
