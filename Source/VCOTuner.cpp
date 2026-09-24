@@ -508,8 +508,11 @@ void VCOTuner::failCurrentNote(vcotuner::MeasurementError reason)
     failureTracker.recordFailure(currentPitch, reason);
     listeners.call(&Listener::measurementFailed, currentPitch, reason);
     
+    // currentIndex deliberately does not advance here: it counts *successful*
+    // measurements, and the "MIDI-to-CV interface isn't responding" check keys
+    // on currentIndex == 0 to run on the first one. Advancing it on failure
+    // would skip that check for the whole sweep whenever the first note fails.
     currentPitch += pitchIncrement;
-    currentIndex++;
     
     if (currentPitch <= highestPitch)
         switchState(prepMeasurement);
