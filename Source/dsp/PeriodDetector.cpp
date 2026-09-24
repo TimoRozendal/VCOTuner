@@ -5,6 +5,35 @@
 namespace vcotuner
 {
 
+namespace
+{
+    /** True when every one of `count` periods lies within `tolerance` (a
+        fraction of their own mean) of that mean.
+
+        Both stability checks in updateStability() ask this same question - one
+        of the newest window, one of the whole valid set - so they share the
+        definition rather than each carrying their own copy of it.
+    */
+    bool isWithinTolerance (const double* periods, int count, double tolerance)
+    {
+        if (periods == nullptr || count <= 0)
+            return false;
+
+        double sum = 0.0;
+        for (int i = 0; i < count; ++i)
+            sum += periods[i];
+
+        const double average  = sum / count;
+        const double boundary = average * tolerance;
+
+        for (int i = 0; i < count; ++i)
+            if (std::abs (periods[i] - average) >= boundary)
+                return false;
+
+        return true;
+    }
+}
+
 void PeriodDetector::prepare (int maxPeriods)
 {
     if (maxPeriods > 0)
@@ -138,18 +167,9 @@ void PeriodDetector::updateStability()
 
     if (firstValidIndex < 0 && n >= cfg.stabilityWindow)
     {
-        double sum = 0.0;
-        for (int i = n - cfg.stabilityWindow; i < n; ++i)
-            sum += periods[(size_t) i];
-        const double average  = sum / cfg.stabilityWindow;
-        const double boundary = average * cfg.stabilityTolerance;
-
-        bool steady = true;
-        for (int i = n - cfg.stabilityWindow; i < n; ++i)
-            if (std::abs (periods[(size_t) i] - average) >= boundary)
-                steady = false;
-
-        if (steady)
+        if (isWithinTolerance (periods.data() + (n - cfg.stabilityWindow),
+                               cfg.stabilityWindow,
+                               cfg.stabilityTolerance))
             firstValidIndex = n;
     }
 
@@ -159,25 +179,11 @@ void PeriodDetector::updateStability()
         // Re-check the whole collected set before declaring success: a drifting
         // oscillator can satisfy a single window and then wander far outside
         // tolerance, which is exactly what failedUnstable is for.
-        const double* p = validPeriods();
-        const int valid = numValidPeriods();
-
-        double sum = 0.0;
-        for (int i = 0; i < valid; ++i)
-            sum += p[i];
-        const double average  = sum / valid;
-        const double boundary = average * cfg.stabilityTolerance;
-
-        for (int i = 0; i < valid; ++i)
-        {
-            if (std::abs (p[i] - average) >= boundary)
-            {
-                currentStatus = DetectorStatus::failedUnstable;
-                return;
-            }
-        }
-
-        currentStatus = DetectorStatus::stable;
+        currentStatus = isWithinTolerance (validPeriods(),
+                                           numValidPeriods(),
+                                           cfg.stabilityTolerance)
+                      ? DetectorStatus::stable
+                      : DetectorStatus::failedUnstable;
         return;
     }
 
