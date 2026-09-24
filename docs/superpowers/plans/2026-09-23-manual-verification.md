@@ -7,12 +7,12 @@ merge.
 
 ## What the automated suite covers, and what it can't
 
-31 Catch2 tests (`ctest --test-dir build -C Debug`) cover the pure
+33 Catch2 tests (`ctest --test-dir build -C Debug`) cover the pure
 `vcotuner_dsp` library — logic with no JUCE dependency, in `Source/dsp/`:
 
 | File | Tests | Covers |
 |---|---|---|
-| `PeriodDetectorTests.cpp` | 14 | Zero-crossing interpolation, hysteresis arming, level tracking / warm-up (the DC/noise immunity), silence and degenerate-input handling, stability detection, terminal statuses (`failedUnstable`, `failedNoCrossings`, `failedBufferFull`) |
+| `PeriodDetectorTests.cpp` | 16 | Zero-crossing interpolation, hysteresis arming, level tracking / warm-up (the DC/noise immunity), silence and degenerate-input handling, stability detection, terminal statuses (`failedUnstable`, `failedNoCrossings`, `failedBufferFull`) |
 | `MeasurementStatisticsTests.cpp` | 9 | The regression-slope period/uncertainty fit that replaced the old standard-deviation-of-periods error bar, the divide-by-zero guard on short period sequences, the two-period boundary |
 | `MeasurementErrorTests.cpp` | 4 | Fatal vs. per-note error classification, per-sweep failure list, reset on each new sweep |
 | `MeasurementTimingTests.cpp` | 4 | The timeout-floor fix, across the entire MIDI 0–127 range, confirming it never evaluates to zero cycles |
@@ -32,9 +32,12 @@ full stop; it is not covered "in spirit" by the unit tests next to it.
       through a MIDI-to-CV interface, into an audio interface input.
 - [ ] Build Release and launch it:
       ```
-      MACOSX_DEPLOYMENT_TARGET=11.0 cmake --build build --config Release
+      cmake --build build --config Release
       open build/VCOTuner_artefacts/Release/VCOTuner.app
       ```
+      (The `MACOSX_DEPLOYMENT_TARGET=11.0` prefix this used to need is gone as
+      of the JUCE 8 upgrade — JUCE 6.1.5 called `CGWindowListCreateImage`,
+      which Apple obsoleted in the macOS 15 SDK.)
 - [ ] Audio and MIDI devices selected in the in-app audio settings panel, and
       the MIDI-to-CV interface confirmed to be the selected MIDI output.
 
@@ -185,3 +188,37 @@ full stop; it is not covered "in spirit" by the unit tests next to it.
       "the app has hung" — note your subjective impression, since this
       figure was accepted as a deliberate trade-off (thorough integration
       time at very low pitch) rather than a bug.
+
+## JUCE 8 upgrade — the two things a build cannot prove
+
+Added when the project moved from JUCE 6.1.5 to 8.0.15. JUCE 8 removed
+`AudioIODeviceCallback::audioDeviceIOCallback()` and replaced it with
+`audioDeviceIOCallbackWithContext()`. The base-class implementation of the new
+one is an empty body, so a class that keeps the old signature still compiles
+cleanly, launches, and renders its UI — while never receiving a single sample.
+A fork of this project shipped in exactly that state.
+
+Our override is marked `override`, which makes that specific mistake a compile
+error rather than a silent failure. These checks exist because the build still
+cannot prove the path is live end to end.
+
+- [ ] **Audio actually reaches the detector.** Start a sweep with the
+      oscillator connected. If any note produces a frequency reading at all,
+      the callback is being called. A sweep where *every* note fails with
+      "no signal detected" is the signature of a dead callback — distinguish
+      it from a genuinely disconnected input by checking the input level in
+      the audio settings panel first.
+- [ ] **MIDI actually sends.** Confirm the oscillator's pitch audibly changes
+      as the sweep advances. If the pitch never moves, the sweep should abort
+      with the "MIDI-to-CV interface is not responding" error rather than
+      silently reporting a flat line.
+
+Both changed in the upgrade and neither is covered by the automated suite,
+which links no JUCE at all.
+
+- [ ] **Graph axis labels still lay out correctly.** JUCE 8 removed
+      `Font::getStringWidth()` and changed text metrics; the pitch-axis label
+      spacing was migrated to `GlyphArrangement::getStringWidth()`. Check the
+      MIDI note numbers along the bottom of the graph are evenly spaced, not
+      overlapping, and not dropping out at narrow window widths. Resize the
+      window to its minimum and back.

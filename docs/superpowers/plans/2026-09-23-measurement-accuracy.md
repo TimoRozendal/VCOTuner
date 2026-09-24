@@ -2139,3 +2139,12 @@ had no caller anywhere, on master either, so `creatingReport` was never true and
 the planned report-mode dialog was unreachable. The summary now fires from
 `ReportDetailsEditorScreen::tunerFinished()` at its two genuine completion
 points; the dead members were removed.
+
+**Superseded after this plan was completed — the macOS build workaround.** Every
+build command above is prefixed with `MACOSX_DEPLOYMENT_TARGET=11.0`, which was
+required while the project was on JUCE 6.1.5: that version called
+`CGWindowListCreateImage`, obsoleted in the macOS 15 SDK, and the prefix was the
+only way to reach the nested `juceaide` bootstrap. The subsequent upgrade to
+JUCE 8.0.15 removed the need for it. The commands are left as written because
+this document records how the work was actually done; for current build
+instructions see `2026-09-23-manual-verification.md`.
