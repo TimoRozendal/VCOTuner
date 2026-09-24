@@ -85,8 +85,7 @@ MainComponent::MainComponent() : tuner(&deviceManager), display(&tuner)
         tuner.setMidiChannel(1);
     
     cycle = false;
-    creatingReport = false;
-    
+
     // for first-time starters, display a help message and the audio settings
     if ((!getAppProperties().getUserSettings()->containsKey("hideWelcomeScreen"))
         || (getAppProperties().getUserSettings()->getIntValue("hideWelcomeScreen") != 1))
@@ -184,13 +183,6 @@ void MainComponent::buttonClicked (Button* bttn)
         
         o.launchAsync();
     }
-}
-
-void MainComponent::startCreatingReport()
-{
-    tuner.setNumMeasurementRange(reportRange.startNote, reportRange.interval, reportRange.endNote);
-    display.clearCache();
-    creatingReport = true;
 }
 
 void MainComponent::comboBoxChanged (ComboBox* comboBoxThatHasChanged)
@@ -345,10 +337,7 @@ void MainComponent::tunerStarted()
 
 void MainComponent::tunerStatusChanged(String statusString)
 {
-    if (creatingReport)
-        statusLabel.setText("Creating Report: " + statusString, juce::dontSendNotification);
-    else
-        statusLabel.setText(statusString, juce::dontSendNotification);
+    statusLabel.setText(statusString, juce::dontSendNotification);
 }
 
 void MainComponent::tunerStopped()
@@ -362,38 +351,23 @@ void MainComponent::tunerStopped()
 
     startStop.setButtonText("Start");
     cycle = false;
-    creatingReport = false;
 }
 
 void MainComponent::tunerFinished()
 {
     startStop.setButtonText("Start");
 
-    // A report is a single sweep with a real end, so summarise the failures
-    // there in one dialog. Live tuning (cycle == true) restarts the sweep
-    // below and runs until Stop is pressed - there is no "end" to summarise,
-    // and a dialog that fired every cycle would just be noise, so it must
-    // never raise one. The failure label under the graph is what live tuning
-    // shows instead, and it already reflects the sweep that just finished.
-    if (creatingReport)
-    {
-        creatingReport = false;
-
-        const auto& failures = tuner.getFailures();
-        if (! failures.empty())
-        {
-            StringArray lines;
-            for (const auto& f : failures)
-                lines.add ("  - MIDI " + String (f.midiPitch)
-                           + " - " + describeError (f.reason));
-
-            NativeMessageBox::showMessageBox (AlertWindow::InfoIcon,
-                "Measurement finished",
-                String (failures.size()) + " of the measured notes could not be read:\n\n"
-                    + lines.joinIntoString ("\n"));
-        }
-    }
-
+    // Live tuning (cycle == true) restarts the sweep below and runs until
+    // Stop is pressed - there is no "end" to summarise here, and a dialog
+    // that fired every cycle would just be noise, so this must never raise
+    // one. The failure label under the graph is what live tuning shows
+    // instead, and it already reflects the sweep that just finished.
+    //
+    // The "Create Report" wizard drives its own sweep independently of this
+    // class (see ReportDetailsEditorScreen::tunerFinished(), which shows the
+    // end-of-report failure summary via showMeasurementFailureSummary() at
+    // the point the report's measurement is actually complete) - there is no
+    // report-mode case for this class to handle.
     if (cycle)
         tuner.toggleState();
 }
@@ -464,8 +438,6 @@ const char* MainComponent::resolutionsTexts[numResolutions] = {
     "200 - neat and tidy",
     "400 - never accurate enough"
 };
-
-const MainComponent::regime_t MainComponent::reportRange = {24, 96, 1};
 
 const String MainComponent::welcomeText = String("Welcome to the VCO Tuner!") + newLine + newLine + "Please follow these steps to get running:" + newLine + "1) connect a MIDI-CV interface to your Computer" + newLine + "2) connect the CV output of the interface to your oscillators frequency input" + newLine + "3) Connect one of the oscillators basic waveforms (sine, saw, triangle, pulse, etc.) directly to your soundcard (use attenuation to avoid clipping)." + newLine + newLine + "When you close this dialog, the audio settings panel will open. Please select your audio and midi device there." + newLine + newLine + "Have fun!" + newLine + newLine + "PS: If you find bugs, please raise an issue on the github repository under https://github.com/TheSlowGrowth/VCOTuner. Thanks!";
 

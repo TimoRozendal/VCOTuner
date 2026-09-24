@@ -572,6 +572,21 @@ String describeError (vcotuner::MeasurementError error)
     }
 }
 
+void showMeasurementFailureSummary (const std::vector<vcotuner::NoteFailure>& failures)
+{
+    if (failures.empty())
+        return;
+
+    StringArray lines;
+    for (const auto& f : failures)
+        lines.add ("  - MIDI " + String (f.midiPitch) + " - " + describeError (f.reason));
+
+    NativeMessageBox::showMessageBox (AlertWindow::InfoIcon,
+        "Measurement finished",
+        String (failures.size()) + " of the measured notes could not be read:\n\n"
+            + lines.joinIntoString ("\n"));
+}
+
 /** inherited from AudioIODeviceCallback */
 void VCOTuner::audioDeviceIOCallback (const float** inputChannelData,
                                     int numInputChannels,

@@ -240,7 +240,13 @@ void ReportDetailsEditorScreen::tunerFinished()
                     // keep existing
                     case 2:
                         tuner->removeListener(this);
-                        
+
+                        // The whole report (main sweep + reference re-check)
+                        // is done and its result is being kept, so this is
+                        // the real end of the report - summarise the sweep's
+                        // per-note failures here, once.
+                        showMeasurementFailureSummary (tuner->getFailures());
+
                         tunerHasFinished = true;
                         if (submitted)
                             parent->next();
@@ -251,7 +257,12 @@ void ReportDetailsEditorScreen::tunerFinished()
             else
             {
                 tuner->removeListener(this);
-                
+
+                // The whole report (main sweep + reference re-check) is done,
+                // so this is the real end of the report - summarise the
+                // sweep's per-note failures here, once.
+                showMeasurementFailureSummary (tuner->getFailures());
+
                 tunerHasFinished = true;
                 if (submitted)
                     parent->next();

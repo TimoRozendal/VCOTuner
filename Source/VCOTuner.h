@@ -219,9 +219,16 @@ private:
 };
 
 /** Short, user-facing description of a per-note measurement failure, for the
-    end-of-report summary dialog in MainComponent. Lives here rather than in
-    Source/dsp/ because it returns a JUCE String. */
+    end-of-report summary dialog. Lives here rather than in Source/dsp/
+    because it returns a JUCE String. */
 String describeError (vcotuner::MeasurementError error);
+
+/** Shows the end-of-report summary dialog (one NativeMessageBox naming every
+    failed note) when failures is non-empty; does nothing otherwise. Shared
+    by every path that finishes a report, so the wording only lives in one
+    place. Currently called from ReportDetailsEditorScreen, at the point
+    where the report's measurement is actually complete. */
+void showMeasurementFailureSummary (const std::vector<vcotuner::NoteFailure>& failures);
 
 
 #endif  // VCOTUNER_H_INCLUDED

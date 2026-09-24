@@ -41,8 +41,6 @@ public:
     virtual void tunerStatusChanged(String statusString) override;
     virtual void measurementFailed (int midiPitch, vcotuner::MeasurementError reason) override;
 
-    void startCreatingReport();
-    
 private:
     //==============================================================================
     AudioDeviceManager deviceManager;
@@ -73,14 +71,12 @@ private:
     static const int numRegimes = 12;
     static const regime_t regimes[numRegimes];
     static const char* regimeTexts[numRegimes];
-    static const regime_t reportRange;
     static const int numResolutions = 5;
     static const int resolutions[numResolutions];
     static const char* resolutionsTexts[numResolutions];
-    
+
     bool cycle;
-    bool creatingReport;
-    
+
     static const String welcomeText;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
