@@ -521,9 +521,9 @@ bool VCOTuner::awaitingStopRequest()
         return true;
 
     // Nothing has consumed the stop request for a full second, so no audio
-    // callback is running. Every prep state used to wait here forever, which
-    // looked to the user exactly like the tuner having frozen. Report it with
-    // the message that already describes this situation and stop.
+    // callback is running to clear it. Waiting on regardless would look to the
+    // user exactly like the tuner having frozen, so report it with the message
+    // that already describes this situation and stop.
     errors.add(Errors::audioDeviceStoppedDuringMeasurement);
     switchState(stopped);   // resets stopWaitCounter along with cycleCounter
     return true;
