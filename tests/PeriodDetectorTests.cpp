@@ -336,6 +336,13 @@ TEST_CASE ("valid periods exclude the unstable run-in")
     detector.reset (cfg);
     detector.processBlock (samples.data(), 48000);
 
-    REQUIRE (detector.numValidPeriods() <= detector.numPeriods());
-    REQUIRE (detector.validPeriods() != nullptr);
+    // Concrete, because the obvious relational assertions
+    // (numValidPeriods() <= numPeriods(), validPeriods() != nullptr) hold by
+    // construction and would still pass with run-in exclusion deleted.
+    // At 440 Hz / 48 kHz the detector latches after the first stabilityWindow
+    // (5) periods and stops at requiredPeriods (10) valid ones, so it holds 15
+    // periods of which the first 5 are the discarded run-in.
+    REQUIRE (detector.numPeriods() == 15);
+    REQUIRE (detector.numValidPeriods() == 10);
+    REQUIRE (detector.validPeriods() == detector.periodData() + 5);
 }
