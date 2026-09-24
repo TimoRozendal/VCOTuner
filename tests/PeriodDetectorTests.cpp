@@ -390,3 +390,53 @@ TEST_CASE ("every shipped pitch and resolution reaches stable")
         }
     }
 }
+
+#include "dsp/MeasurementError.h"
+
+TEST_CASE ("one click fails the note instead of being absorbed into the fit")
+{
+    // This is a deliberate consequence of re-validating steadiness over the
+    // whole valid set rather than a single window, written down here so it is
+    // a specification rather than a surprise: a capture containing one glitch
+    // is failed and marked, not silently folded into the fit's error bars,
+    // where it would produce a wrong frequency carrying a plausible-looking
+    // uncertainty. The note is reported through the non-fatal highJitter
+    // error, so the sweep carries on past it (asserted at the bottom).
+    PeriodDetectorConfig cfg;
+    cfg.warmupSamples   = 480;
+    cfg.requiredPeriods = 400;
+
+    const double freq = 440.0, sampleRate = 48000.0;
+    const int numSamples = 60000;   // ~545 periods; maxPeriods (600) is not hit
+
+    // Control: the same signal without the click is stable.
+    {
+        const auto clean = makeSine (freq, sampleRate, numSamples, 0.9, 0.0);
+        PeriodDetector detector;
+        detector.reset (cfg);
+        detector.processBlock (clean.data(), numSamples);
+        REQUIRE (detector.status() == DetectorStatus::stable);
+    }
+
+    auto samples = makeSine (freq, sampleRate, numSamples, 0.9, 0.0);
+
+    // Two samples of click, halfway through the capture, on a part of the
+    // waveform that sits below the trigger midpoint - so it forces a spurious
+    // crossing rather than merely nudging an existing one.
+    int clickAt = numSamples / 2;
+    while (clickAt < numSamples - 2 && samples[(size_t) clickAt] > -0.5f)
+        ++clickAt;
+    samples[(size_t) clickAt]     = 1.5f;
+    samples[(size_t) clickAt + 1] = 1.5f;
+
+    PeriodDetector detector;
+    detector.reset (cfg);
+    detector.processBlock (samples.data(), numSamples);
+
+    INFO ("clickAt=" << clickAt << " numPeriods=" << detector.numPeriods());
+    REQUIRE (detector.status() == DetectorStatus::failedUnstable);
+
+    // VCOTuner maps failedUnstable onto highJitter, which is not fatal: the
+    // note is recorded and the sweep moves on to the next one.
+    REQUIRE_FALSE (isFatal (MeasurementError::highJitter));
+}
