@@ -4,6 +4,8 @@ on:
   # Run for all commits on feature branches
   push:
   pull_request:
+  # lets a build be started by hand, without needing a commit or a tag
+  workflow_dispatch:
 jobs:
   ###############################################################################
   # builds the application on windows
