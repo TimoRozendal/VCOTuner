@@ -13,10 +13,11 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - name: Setup cmake
-      uses: jwlawson/actions-setup-cmake@v2
-      with:
-        cmake-version: '3.28.x'
+    # No setup-cmake here on purpose. windows-latest is now
+    # windows-2025-vs2026, and a pinned CMake 3.28 predates Visual Studio
+    # 2026 - it finds no usable generator and fails with
+    # 'CMAKE_C_COMPILER not set'. The image's own CMake always knows the
+    # Visual Studio the image ships, so use that.
 
     - name: Checkout
       uses: actions/checkout@v4
