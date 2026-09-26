@@ -25,7 +25,7 @@ jobs:
 
     - name: Configure
       run: |
-        cmake.exe -G "Visual Studio 17 2022" -A x64 -B build
+        cmake.exe -A x64 -B build
 
     - name: Build
       run: |
@@ -91,6 +91,7 @@ jobs:
 
     - name: Setup dependencies
       run: |
+        sudo apt-get update
         sudo apt-get -y install g++ libfreetype6-dev libfontconfig1-dev libx11-dev libxinerama-dev libxrandr-dev libxcursor-dev mesa-common-dev libasound2-dev freeglut3-dev libxcomposite-dev
 
     - name: Checkout
@@ -127,6 +128,7 @@ jobs:
     # pulls in JUCE and bootstraps juceaide, which needs JUCE's build deps.
     - name: Setup dependencies
       run: |
+        sudo apt-get update
         sudo apt-get -y install g++ libfreetype6-dev libfontconfig1-dev libx11-dev libxinerama-dev libxrandr-dev libxcursor-dev mesa-common-dev libasound2-dev freeglut3-dev libxcomposite-dev
 
     - name: Checkout
