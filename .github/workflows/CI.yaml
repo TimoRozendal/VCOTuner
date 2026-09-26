@@ -63,11 +63,18 @@ jobs:
       run: |
         cmake --build build --config Release
 
+    # An .app is a directory containing symlinks. Zipping it on the Linux
+    # release job would mangle them, so it is packaged here, on macOS.
+    - name: Package the app bundle
+      run: |
+        cd build/VCOTuner_artefacts/Release
+        ditto -c -k --keepParent VCOTuner.app VCOTuner-macOS.zip
+
     - name: Upload executable
       uses: actions/upload-artifact@v4
       with:
         name: VCOTuner_MacOS
-        path: build/VCOTuner_artefacts/Release/**
+        path: build/VCOTuner_artefacts/Release/VCOTuner-macOS.zip
 
   ###############################################################################
   # builds the application on ubuntu
@@ -136,3 +143,44 @@ jobs:
     - name: Run tests
       run: |
         ctest --test-dir build --output-on-failure
+
+  ###############################################################################
+  # publishes a release when a v* tag is pushed. Does nothing on ordinary pushes.
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [testBuildWindows, testBuildMacOS, testBuildUbuntu, unitTests]
+    runs-on: ubuntu-latest
+    permissions:
+      # GITHUB_TOKEN is read-only by default; creating a release needs write.
+      contents: write
+
+    steps:
+    - name: Download every build artifact
+      uses: actions/download-artifact@v4
+
+    - name: Publish the release
+      uses: softprops/action-gh-release@v2
+      with:
+        generate_release_notes: true
+        body: |
+          ## Before you download
+
+          **Only the macOS build has been tested on real hardware.** The Windows
+          and Linux binaries are produced by CI and have never been run against
+          an actual oscillator, or run at all. They compile; that is all that is
+          known about them. Treat them as untested.
+
+          **macOS builds are not signed by Apple.** Gatekeeper will refuse to
+          open the app and claim it is damaged. It isn't. Either right-click the
+          app and choose Open, or clear the quarantine flag:
+
+          ```
+          xattr -dr com.apple.quarantine VCOTuner.app
+          ```
+
+          Signing properly needs a paid Apple Developer ID, which this project
+          does not have.
+        files: |
+          VCOTuner_Windows/VCOTuner.exe
+          VCOTuner_MacOS/VCOTuner-macOS.zip
+          VCOTuner_Linux/VCOTuner
