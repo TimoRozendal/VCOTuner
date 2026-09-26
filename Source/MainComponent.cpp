@@ -240,7 +240,12 @@ void MainComponent::showAudioSettings()
         : selectorComponent(m, 1, 1, 0, 0, false, true, false, false)
         {
             t = tunerToUse;
-            
+
+            // Added first so it sits behind the fixed controls below. It used
+            // to be added last, which put it on top - so when it overflowed
+            // the space given to it, it covered them.
+            addAndMakeVisible(&selectorComponent);
+
             channelLabel.setName("MidiChannel Label");
             channelLabel.setText("MIDI Channel: ", dontSendNotification);
             channelLabel.setJustificationType(juce::Justification::centredRight);
@@ -260,8 +265,6 @@ void MainComponent::showAudioSettings()
             close.setButtonText("Close");
             close.addListener(this);
             addAndMakeVisible(&close);
-            
-            addAndMakeVisible(&selectorComponent);
         }
         
         void comboBoxChanged (ComboBox* comboBoxThatHasChanged) override
@@ -275,12 +278,25 @@ void MainComponent::showAudioSettings()
         {
             const int height = selectorComponent.getItemHeight();
             const int border = 10;
-            
-            selectorComponent.setBounds(0, 0, getWidth(), getHeight() - 4*border - 2*height);
-            // selectorComponent overwrites its height in its resized() function. But it doesnt seem to work
-            channelEdit.setBounds(proportionOfWidth (0.35f), selectorComponent.getBottom() + border, proportionOfWidth (0.6f), height);
-            channelLabel.setBounds(0, selectorComponent.getBottom() + border, proportionOfWidth (0.35f), height);
-            close.setBounds(border, getHeight() - border - height, getWidth() - 2*border, height);
+
+            // Lay the fixed-height controls out from the bottom upward, and
+            // give the device selector whatever is left.
+            //
+            // These used to be positioned off selectorComponent.getBottom().
+            // AudioDeviceSelectorComponent overrides its own height in its
+            // resized() to fit however many devices and channels are attached,
+            // so its bottom edge is not where we put it - and when it grew, it
+            // pushed the MIDI channel control clean off the bottom of the
+            // dialog. That made the channel unreachable exactly when a device
+            // was connected, which is the only time you need to set it.
+            const int closeTop   = getHeight() - border - height;
+            const int channelTop = closeTop - border - height;
+
+            close.setBounds(border, closeTop, getWidth() - 2 * border, height);
+            channelLabel.setBounds(0, channelTop, proportionOfWidth (0.35f), height);
+            channelEdit.setBounds(proportionOfWidth (0.35f), channelTop, proportionOfWidth (0.6f), height);
+
+            selectorComponent.setBounds(0, 0, getWidth(), jmax(0, channelTop - border));
         }
         
         void buttonClicked (Button* bttn) override
