@@ -1,6 +1,8 @@
 # VCOTuner
 A JUCE based tuner application for VCOs, VCFs and other analog gear. It runs on Windows, Mac and Linux.
 
+This is a fork of [TheSlowGrowth/VCOTuner](https://github.com/TheSlowGrowth/VCOTuner) with the measurement code substantially reworked — see [What's new](#whats-new).
+
 ## Overview
 
 **How tuning usually works** - Tuning is usually a tedious ping-pong game between adjusting a fine tune pot and adjusting one or multiple tuning trimmers. Whenever a trimmer has been adjusted, the fine tune pot has to be adjusted as well to bring the pitch back to a specific note. 
@@ -19,7 +21,9 @@ alt="Youtube tutorial video" width="400" border="0" /></a>
 
 **Measurements are much more accurate.** The app finds each zero crossing more precisely than the sample rate alone allows, by interpolating between the two samples either side of it. That calculation was wrong — it mirrored the result within the sample interval, which added roughly *twice* as much timing jitter as doing no interpolation at all. With it fixed, the jitter at 440 Hz drops from about a third of a sample to essentially nothing.
 
-You'll notice this as **far narrower error bars**. On a perfectly good oscillator they used to be tens of cents wide; on a clean signal they're now a fraction of a cent. Raising the resolution setting narrows them further, which it previously did not.
+You'll notice this as **error bars that mostly aren't there any more**. The old build drew bands tens of cents wide on a perfectly good oscillator. The uncertainty is now so much smaller than that it falls below a single pixel on a steady signal, so no band is drawn at all.
+
+The band reappears the moment the pitch genuinely moves — turn a tuning trimmer while a sweep is running and you'll watch it grow, then collapse again when you let go. So read it this way: **no band means the reading is settled and trustworthy; a visible band means the pitch is still moving.**
 
 **The error bars were also measuring the wrong thing.** They showed the spread of the individual period readings rather than the uncertainty of the averaged result that's actually plotted. They now show the uncertainty of the number on screen.
 
@@ -39,7 +43,7 @@ One thing to expect from that: a note whose capture contains an audible click or
 
 ## Download
 
-[Head over to the "release" section of this repository to download the latest release.](https://github.com/TheSlowGrowth/VCOTuner/releases/latest)
+[Head over to the "release" section of this repository to download the latest release.](https://github.com/TimoRozendal/VCOTuner/releases/latest)
 
 macOS downloads are not signed by Apple, so Gatekeeper will refuse to open them and claim the app is damaged. It isn't — right-click the app and choose Open, or clear the quarantine flag:
 
@@ -52,7 +56,7 @@ xattr -dr com.apple.quarantine VCOTuner.app
 Requires CMake 3.22 or later and a C++17 compiler.
 
 ```
-git clone --recursive https://github.com/TheSlowGrowth/VCOTuner.git
+git clone --recursive https://github.com/TimoRozendal/VCOTuner.git
 cd VCOTuner
 cmake -B build
 cmake --build build --config Release
@@ -76,8 +80,8 @@ ctest --test-dir build
 
 ## Help to improve it
 
-[If you find bugs, please raise an issue here!](https://github.com/TheSlowGrowth/VCOTuner/issues)
+[If you find bugs, please raise an issue here!](https://github.com/TimoRozendal/VCOTuner/issues)
 
-## Are you on Muff's?
+## Are you on ModWiggler?
 
-[Here's a thread on MuffWiggler. Post your tuning reports here, if you like](https://www.muffwiggler.com/forum/viewtopic.php?p=2276045)
+[Here's a thread on ModWiggler. Post your tuning reports here, if you like](https://www.modwiggler.com/forum/viewtopic.php?p=2276045)
